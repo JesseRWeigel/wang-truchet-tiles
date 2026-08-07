@@ -34,7 +34,7 @@ trap 'rm -rf "$work"' EXIT
 
 # The number of tests is a claim like any other, so it is asserted rather than described.
 # Update it deliberately when you add a test, and never by pasting whatever the run printed.
-EXPECTED_TESTS=44
+EXPECTED_TESTS=45
 
 digest_tree() {
   git ls-files -z \

@@ -176,13 +176,27 @@ export function rasterise(scene, { pixelWidth, samples = 4, wrap = false } = {})
   // mysterious failure, require the alignment and name the fix.
   if (wrap) {
     const pixelsPerCell = scene.cell / unitsPerPixel;
-    if (!Number.isInteger(pixelsPerCell) || pixelsPerCell * unitsPerPixel !== scene.cell) {
-      const cells = scene.width / scene.cell;
-      throw new Error(`a wrapped render needs the pixel grid to land on the cell grid: `
-        + `${pixelWidth} pixels over ${cells} cells is ${pixelsPerCell} pixels per cell, and `
-        + `${pixelsPerCell} of them measure ${pixelsPerCell * unitsPerPixel} units rather than `
-        + `${scene.cell}. Use a pixel width of the form cells x n where 100/n is exact in `
-        + 'binary, for example n = 25, 40, 50, 64, 80 or 100.');
+    const cells = scene.width / scene.cell;
+    // Two conditions, and the second is the one that is easy to miss. A whole number of
+    // pixels per cell is necessary and not sufficient: at 96 pixels over 4 cells the unit
+    // width of a pixel is 100/24, which is 4.166666666666667 in binary, and although
+    // 24 x 4.166666666666667 comes to exactly 100, the sample coordinate is computed as
+    // (pixel + offset) x unitWidth, and that product rounds differently at different pixels.
+    // The result was a genuinely seamless tiling whose rendering disagreed with itself by one
+    // sample on 146 pixels. So the unit width has to be a dyadic rational, which is exactly
+    // the condition under which every one of those products is exact.
+    const dyadic = (() => {
+      for (let power = 0; power <= 24; power++) {
+        if (Number.isInteger(unitsPerPixel * 2 ** power)) return true;
+      }
+      return false;
+    })();
+    if (!Number.isInteger(pixelsPerCell) || !dyadic) {
+      throw new Error('a wrapped render needs the pixel grid to land on the cell grid: '
+        + `${pixelWidth} pixels over ${cells} cells is ${pixelsPerCell} pixels per cell of `
+        + `${unitsPerPixel} units each, and a shift by one cell is then not a shift by a whole `
+        + 'number of pixels. Use a pixel width of cells x n with n one of '
+        + '1, 2, 4, 5, 8, 10, 16, 20, 25, 32, 40, 50, 64, 80, 100.');
     }
   }
   const scale = pixelWidth / scene.width;

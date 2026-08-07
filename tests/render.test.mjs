@@ -244,6 +244,24 @@ test('the rasteriser refuses a sample count that would break translation invaria
   assert.throws(() => rasterise(scene, { pixelWidth: 0 }), /pixelWidth/);
 });
 
+test('a wrapped render refuses a pixel grid that does not land on the cell grid', () => {
+  // 96 pixels over 4 cells is 24 per cell, and 24 pixel widths of 100/24 units come to
+  // 100.00000000000001, so a whole cell shift is not a whole pixel shift and the seam test
+  // silently measures rounding. The guard has to fire, and it must fire only for a wrapped
+  // render, because an ordinary export at an arbitrary size is perfectly fine.
+  const { scene } = render({ family: 'arcs', width: 4, height: 4, seed: 'align', torus: true });
+  assert.throws(() => rasterise(scene, { pixelWidth: 96, samples: 4, wrap: true }),
+    /land on the cell grid/);
+  assert.throws(() => rasterise(scene, { pixelWidth: 150, samples: 2, wrap: true }),
+    /land on the cell grid/);
+  for (const pixelWidth of [4, 100, 160, 200, 400]) {
+    assert.ok(rasterise(scene, { pixelWidth, samples: 1, wrap: true }).width === pixelWidth,
+      `${pixelWidth} pixels over 4 cells should be an acceptable wrapped size`);
+  }
+  assert.equal(rasterise(scene, { pixelWidth: 96, samples: 1, wrap: false }).width, 96,
+    'an unwrapped render at the same size makes no seamlessness claim and must be allowed');
+});
+
 // ------------------------------------------------------------------------------ the PNG
 
 test('the PNG is a real PNG and its pixels are the pixels that were rasterised', () => {
