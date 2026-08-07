@@ -108,9 +108,13 @@ function commandPng(options) {
   let seamOk = true;
   if (model.torus) {
     const perCell = image.width / model.width;
+    // The rasteriser refuses a wrapped render whose pixel grid does not land on the cell
+    // grid, so reaching here means it does. The shift test needs the same property, and
+    // failing rather than skipping is the point: a "not tested" line and an "ok" line read
+    // the same way in a log a week later.
     if (!Number.isInteger(perCell)) {
-      console.log(`  seamless      not tested: ${image.width} pixels over ${model.width} cells `
-        + 'is not a whole number, so the shift test cannot be exact. '
+      console.log(`  seamless      NOT TESTED, which is a failure: ${image.width} pixels over `
+        + `${model.width} cells is not a whole number, so the shift test cannot be exact. `
         + `Use --pixel-width a multiple of ${model.width}.`);
       seamOk = false;
     } else {

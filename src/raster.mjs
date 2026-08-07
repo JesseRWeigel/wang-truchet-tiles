@@ -73,14 +73,43 @@ function bucketShapes(scene, wrap) {
   return { buckets, cols, rows };
 }
 
+/**
+ * Point in triangle under the top-left fill rule.
+ *
+ * The obvious test treats a point exactly on an edge as inside, and that is what the first
+ * version did. It is wrong here for a reason that took a failing seam test to find. Two
+ * triangles that share an edge then both claim a sample lying on it, the tie is broken by
+ * whichever shape was painted last, and paint order is the order of the scene. Shift the
+ * tiling by one cell on a torus and a pair that used to resolve one way resolves the other,
+ * so a genuinely seamless tiling rendered 146 pixels differently from itself. The deltas
+ * were single samples, up to 16 of 255, which is invisible to the eye and fatal to a byte
+ * for byte test. Adding a tolerance to the test would have hidden the only check that can
+ * catch a real seam.
+ *
+ * The fix is the standard rasteriser rule: a point on a shared edge belongs to exactly one
+ * of the two triangles, decided by the direction of the edge rather than by paint order.
+ * An edge that goes down is a left edge and keeps its boundary; a horizontal edge that goes
+ * leftwards is a top edge and keeps its boundary; everything else gives it up. Coverage then
+ * depends only on the geometry, so translating the whole scene translates the coverage.
+ */
 function insideTriangle(px, py, points) {
-  const [[ax, ay], [bx, by], [cx, cy]] = points;
-  const d1 = (px - bx) * (ay - by) - (ax - bx) * (py - by);
-  const d2 = (px - cx) * (by - cy) - (bx - cx) * (py - cy);
-  const d3 = (px - ax) * (cy - ay) - (cx - ax) * (py - ay);
-  const negative = (d1 < 0) || (d2 < 0) || (d3 < 0);
-  const positive = (d1 > 0) || (d2 > 0) || (d3 > 0);
-  return !(negative && positive);
+  let [[ax, ay], [bx, by], [cx, cy]] = points;
+  // Normalise the winding so "inside" is consistently the non-negative side. In screen
+  // coordinates, with y increasing downwards, that is clockwise on screen.
+  const area = (bx - ax) * (cy - ay) - (by - ay) * (cx - ax);
+  if (area === 0) return false;
+  if (area < 0) { [bx, by, cx, cy] = [cx, cy, bx, by]; }
+  const edges = [[ax, ay, bx, by], [bx, by, cx, cy], [cx, cy, ax, ay]];
+  for (const [x0, y0, x1, y1] of edges) {
+    const value = (x1 - x0) * (py - y0) - (y1 - y0) * (px - x0);
+    if (value > 0) continue;
+    if (value < 0) return false;
+    // Exactly on the line. Keep it only for a top or a left edge.
+    const isLeft = y1 > y0;
+    const isTop = y1 === y0 && x1 < x0;
+    if (!isLeft && !isTop) return false;
+  }
+  return true;
 }
 
 function onArc(px, py, shape) {
@@ -137,6 +166,25 @@ export function rasterise(scene, { pixelWidth, samples = 4, wrap = false } = {})
       + 'Other values make the sample offsets non-dyadic and break translation invariance.');
   }
   const unitsPerPixel = scene.width / pixelWidth;
+  // A wrapped render claims the image tiles seamlessly, and the only exact test of that is
+  // to shift the tiling by a whole cell and the image by the corresponding whole number of
+  // pixels. That comparison is only meaningful when the two shifts are the same shift. At
+  // 96 pixels over 4 cells of 100 units the unit width of a pixel is 100/24, and 24 of them
+  // come to 100.00000000000001 rather than 100, so a sample near a cell boundary lands on
+  // one side before the shift and the other side after it. The tiling was seamless and the
+  // rendering disagreed with itself on 146 pixels. Rather than let the caller find that as a
+  // mysterious failure, require the alignment and name the fix.
+  if (wrap) {
+    const pixelsPerCell = scene.cell / unitsPerPixel;
+    if (!Number.isInteger(pixelsPerCell) || pixelsPerCell * unitsPerPixel !== scene.cell) {
+      const cells = scene.width / scene.cell;
+      throw new Error(`a wrapped render needs the pixel grid to land on the cell grid: `
+        + `${pixelWidth} pixels over ${cells} cells is ${pixelsPerCell} pixels per cell, and `
+        + `${pixelsPerCell} of them measure ${pixelsPerCell * unitsPerPixel} units rather than `
+        + `${scene.cell}. Use a pixel width of the form cells x n where 100/n is exact in `
+        + 'binary, for example n = 25, 40, 50, 64, 80 or 100.');
+    }
+  }
   const scale = pixelWidth / scene.width;
   const pixelHeight = Math.max(1, Math.round(scene.height * scale));
   const { buckets, cols, rows } = bucketShapes(scene, wrap);
