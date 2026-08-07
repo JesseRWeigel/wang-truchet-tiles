@@ -1,0 +1,2463 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="auto">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wang and Truchet tiles</title>
+<meta name="description" content="An edge-matched Wang tile and Truchet curve generator that checks its own output. Self contained, no network, deterministic from a named seed.">
+<style>
+/* One stylesheet, inlined into docs/index.html by scripts/build_docs.mjs.
+ *
+ * Themes. The page follows the operating system by default and the toggle overrides it in
+ * both directions, which is why the dark rules appear twice: once under
+ * prefers-color-scheme for the automatic case, and once under :root[data-theme="dark"] so an
+ * explicit choice wins over the system on a machine set the other way. A page that only
+ * listens to the media query has a toggle that does nothing for half its visitors. */
+
+:root {
+  --paper: #f6f4ef;
+  --panel: #fffefb;
+  --ink: #17191d;
+  --muted: #5d6169;
+  --faint: #8b9098;
+  --rule: #ddd8ce;
+  --rule-strong: #c3bcae;
+  --accent: #3c4ea3;
+  --accent-soft: #e7e9f6;
+  --ok: #2f6b46;
+  --bad: #a33327;
+  --shadow: 0 1px 2px rgba(23, 25, 29, 0.06), 0 12px 32px rgba(23, 25, 29, 0.08);
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --serif: Georgia, "Iowan Old Style", "Times New Roman", Times, serif;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #101216;
+    --panel: #171a20;
+    --ink: #e9e6df;
+    --muted: #a2a8b3;
+    --faint: #757c88;
+    --rule: #272c35;
+    --rule-strong: #39404c;
+    --accent: #93a7ff;
+    --accent-soft: #1c2233;
+    --ok: #6fce9c;
+    --bad: #f0837a;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 14px 40px rgba(0, 0, 0, 0.45);
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="light"] {
+  --paper: #f6f4ef;
+  --panel: #fffefb;
+  --ink: #17191d;
+  --muted: #5d6169;
+  --faint: #8b9098;
+  --rule: #ddd8ce;
+  --rule-strong: #c3bcae;
+  --accent: #3c4ea3;
+  --accent-soft: #e7e9f6;
+  --ok: #2f6b46;
+  --bad: #a33327;
+  --shadow: 0 1px 2px rgba(23, 25, 29, 0.06), 0 12px 32px rgba(23, 25, 29, 0.08);
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  --paper: #101216;
+  --panel: #171a20;
+  --ink: #e9e6df;
+  --muted: #a2a8b3;
+  --faint: #757c88;
+  --rule: #272c35;
+  --rule-strong: #39404c;
+  --accent: #93a7ff;
+  --accent-soft: #1c2233;
+  --ok: #6fce9c;
+  --bad: #f0837a;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 14px 40px rgba(0, 0, 0, 0.45);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  padding: 0 clamp(1rem, 4vw, 3.5rem) 5rem;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 16px;
+  line-height: 1.55;
+  -webkit-text-size-adjust: 100%;
+}
+
+/* Hidden by clipping rather than by left: -9999px. The off-screen idiom puts a real box a
+ * long way outside the viewport, which the layout check in scripts/browser_check.mjs reports
+ * as an element escaping the page, and it is right to: the check cannot tell an intentional
+ * skip link from a control that has fallen off the edge, and weakening it to allow one would
+ * blind it to the other. */
+.skip {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.skip:focus {
+  width: auto;
+  height: auto;
+  margin: 0;
+  padding: 0.5rem 1rem;
+  clip-path: none;
+  left: 0;
+  top: 0;
+  background: var(--accent);
+  color: var(--panel);
+  z-index: 10;
+}
+
+h1, h2, h3 { font-family: var(--serif); font-weight: 400; letter-spacing: -0.01em; }
+
+.masthead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 2rem;
+  max-width: 76rem;
+  margin: 0 auto;
+  padding: clamp(2rem, 5vw, 3.5rem) 0 1.5rem;
+  border-bottom: 1px solid var(--rule);
+}
+
+.masthead h1 {
+  margin: 0 0 0.6rem;
+  font-size: clamp(2rem, 5vw, 3.1rem);
+  line-height: 1.05;
+}
+
+.standfirst {
+  margin: 0;
+  max-width: 46rem;
+  color: var(--muted);
+  font-size: 1.02rem;
+}
+
+.theme-toggle {
+  flex: none;
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  padding: 0.5rem 0.9rem;
+  border: 1px solid var(--rule-strong);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+.theme-toggle:hover { color: var(--ink); border-color: var(--ink); }
+
+main {
+  display: grid;
+  grid-template-columns: minmax(19rem, 22rem) minmax(0, 1fr);
+  gap: clamp(1.5rem, 3vw, 3rem);
+  align-items: start;
+  max-width: 76rem;
+  margin: 0 auto;
+  padding-top: 2rem;
+}
+
+/* ------------------------------------------------------------------ controls */
+
+.controls {
+  position: sticky;
+  top: 1.5rem;
+  background: var(--panel);
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  padding: 1.25rem;
+  box-shadow: var(--shadow);
+}
+
+.control-grid { display: grid; gap: 1.1rem; }
+
+.field { display: grid; gap: 0.35rem; min-width: 0; }
+
+.field > label,
+.field.checkbox > label > span {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+.field .value { color: var(--accent); letter-spacing: 0.04em; }
+
+select, input[type="text"] {
+  width: 100%;
+  min-width: 0;
+  font: inherit;
+  font-size: 0.94rem;
+  padding: 0.45rem 0.6rem;
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--rule-strong);
+  border-radius: 6px;
+}
+
+input[type="text"] { font-family: var(--mono); font-size: 0.86rem; }
+
+select:focus-visible,
+input:focus-visible,
+button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.row { display: flex; gap: 0.5rem; align-items: center; min-width: 0; }
+.row > input[type="range"] { flex: 1 1 0; min-width: 0; }
+
+input[type="range"] {
+  width: 100%;
+  min-width: 0;
+  accent-color: var(--accent);
+}
+
+.field.checkbox > label {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  cursor: pointer;
+}
+.field.checkbox input { accent-color: var(--accent); width: 1rem; height: 1rem; }
+
+.hint {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 1.25rem 0 0.6rem;
+  padding-top: 1.1rem;
+  border-top: 1px solid var(--rule);
+}
+
+button {
+  font-family: var(--mono);
+  font-size: 0.74rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 0.55rem 0.85rem;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: var(--accent);
+  color: var(--panel);
+  cursor: pointer;
+}
+/* The panel colour is the near-white of the light theme and the near-black of the dark one,
+ * and the accent inverts with it, so one declaration gives a readable button in both. */
+button:hover { filter: brightness(1.07); }
+
+button.ghost {
+  background: transparent;
+  color: var(--muted);
+  border-color: var(--rule-strong);
+}
+button.ghost:hover { color: var(--ink); border-color: var(--ink); filter: none; }
+
+/* --------------------------------------------------------------------- plate */
+
+.plate { min-width: 0; }
+
+.plate-frame {
+  background: var(--panel);
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  padding: clamp(0.6rem, 1.5vw, 1.1rem);
+  box-shadow: var(--shadow);
+  overflow-x: auto;
+}
+
+canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 3px;
+}
+
+.caption {
+  margin: 0.9rem 0 0;
+  font-family: var(--mono);
+  font-size: 0.76rem;
+  line-height: 1.6;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+}
+
+.caption strong { color: var(--ink); font-weight: 600; }
+
+.plate.error .plate-frame {
+  border-color: var(--bad);
+  border-style: dashed;
+}
+
+/* ------------------------------------------------------------------- readout */
+
+.readout, .notes {
+  max-width: 76rem;
+  margin: clamp(2.5rem, 6vw, 4rem) auto 0;
+  padding-top: clamp(1.5rem, 3vw, 2.25rem);
+  border-top: 1px solid var(--rule);
+}
+
+.readout h2, .notes h2 { margin: 0 0 0.5rem; font-size: 1.6rem; }
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.card {
+  background: var(--panel);
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  padding: 1rem 1.1rem 1.2rem;
+}
+
+.card h3 {
+  margin: 0 0 0.5rem;
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+.verdict {
+  margin: 0 0 0.45rem;
+  font-family: var(--mono);
+  font-size: 0.95rem;
+  line-height: 1.4;
+}
+.verdict.pass { color: var(--ok); }
+.verdict.fail { color: var(--bad); }
+
+.detail {
+  margin: 0;
+  font-size: 0.84rem;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.inspector { margin-top: 1.75rem; }
+.inspector h3 {
+  margin: 0 0 0.35rem;
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+.tiles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  margin-top: 0.9rem;
+}
+
+.tiles figure {
+  margin: 0;
+  display: grid;
+  gap: 0.25rem;
+  justify-items: center;
+}
+
+.tiles canvas {
+  width: 46px;
+  height: 46px;
+  border-radius: 4px;
+  border: 1px solid var(--rule);
+}
+
+.tiles figcaption {
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.04em;
+  color: var(--faint);
+}
+
+/* --------------------------------------------------------------------- notes */
+
+.note-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+  gap: 1.5rem 2.5rem;
+  margin-top: 1.5rem;
+}
+
+.note-grid h3 { margin: 0 0 0.4rem; font-size: 1.08rem; }
+.note-grid p { margin: 0; color: var(--muted); font-size: 0.9rem; }
+
+.colophon {
+  margin: 2.5rem 0 0;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--rule);
+  font-family: var(--mono);
+  font-size: 0.74rem;
+  letter-spacing: 0.02em;
+  color: var(--faint);
+}
+
+@media (max-width: 900px) {
+  main { grid-template-columns: minmax(0, 1fr); }
+  .controls { position: static; }
+  .plate { order: -1; }
+}
+</style>
+</head>
+<body>
+<a class="skip" href="#plate">Skip to the tiling</a>
+
+<header class="masthead">
+  <div class="masthead-text">
+    <h1>Wang and Truchet tiles</h1>
+    <p class="standfirst">Squares with coloured edges, placed without rotation so that
+    touching edges agree. Curves that join because the geometry makes them join, checked
+    rather than asserted. Every tiling here is reproducible from its seed.</p>
+  </div>
+  <button id="theme-toggle" class="theme-toggle" type="button" aria-live="polite">
+    <span id="theme-label">Auto</span>
+  </button>
+</header>
+
+<main>
+  <section class="controls" aria-label="Controls">
+    <div class="control-grid">
+      <div class="field">
+        <label for="family">Family</label>
+        <select id="family"></select>
+        <p class="hint" id="family-note"></p>
+      </div>
+
+      <div class="field" id="set-field">
+        <label for="set">Tile set</label>
+        <select id="set"></select>
+        <p class="hint" id="set-note"></p>
+      </div>
+
+      <div class="field" id="style-field">
+        <label for="style">Drawing</label>
+        <select id="style">
+          <option value="triangles">Four coloured triangles</option>
+          <option value="arcs">Smith arcs, one orientation per tile</option>
+        </select>
+        <p class="hint">The triangles show the edge colours themselves, so a person can read
+        the matching off the picture.</p>
+      </div>
+
+      <div class="field">
+        <label for="palette">Palette</label>
+        <select id="palette"></select>
+      </div>
+
+      <div class="field">
+        <label for="seed">Seed</label>
+        <div class="row">
+          <input id="seed" type="text" spellcheck="false" autocomplete="off">
+          <button id="shuffle" type="button" class="ghost">New</button>
+        </div>
+        <p class="hint">The same seed always gives the same tiling, in this page and on the
+        command line.</p>
+      </div>
+
+      <div class="field">
+        <label for="width">Grid <span class="value" id="grid-value"></span></label>
+        <div class="row">
+          <input id="width" type="range" min="1" max="48" step="1">
+          <input id="height" type="range" min="1" max="48" step="1">
+        </div>
+      </div>
+
+      <div class="field" id="bands-field">
+        <label for="bands">Bands per corner <span class="value" id="bands-value"></span></label>
+        <input id="bands" type="range" min="1" max="7" step="1">
+      </div>
+
+      <div class="field" id="weight-field">
+        <label for="weight">Stroke <span class="value" id="weight-value"></span></label>
+        <input id="weight" type="range" min="2" max="45" step="1">
+      </div>
+
+      <div class="field checkbox">
+        <label for="torus">
+          <input id="torus" type="checkbox">
+          <span>Seamless, wrapped on a torus</span>
+        </label>
+        <p class="hint">The left edge is glued to the right and the top to the bottom, so the
+        image repeats without a seam.</p>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button id="download-svg" type="button">Download SVG</button>
+      <button id="download-png" type="button">Download PNG, 300 dpi</button>
+      <button id="copy-link" type="button" class="ghost">Copy link</button>
+    </div>
+    <p class="hint" id="export-note">The SVG carries millimetre dimensions, so it prints and
+    cuts at a real size rather than at whatever the application guesses.</p>
+  </section>
+
+  <section class="plate" id="plate" aria-label="The tiling">
+    <div class="plate-frame">
+      <canvas id="canvas" width="16" height="16"></canvas>
+    </div>
+    <p class="caption" id="caption"></p>
+  </section>
+</main>
+
+<section class="readout" aria-label="What the generator checked">
+  <div class="readout-head">
+    <h2>What this tiling was checked for</h2>
+    <p class="standfirst">Run in the page, on the tiling on screen, every time it changes.
+    The counterexample families are supposed to fail, and saying so is the only way to know
+    the checker is looking.</p>
+  </div>
+  <div class="cards">
+    <article class="card" id="card-invariant">
+      <h3>Invariant</h3>
+      <p class="verdict" id="invariant-verdict"></p>
+      <p class="detail" id="invariant-detail"></p>
+    </article>
+    <article class="card">
+      <h3>Placement</h3>
+      <p class="verdict" id="placement-verdict"></p>
+      <p class="detail" id="placement-detail"></p>
+    </article>
+    <article class="card">
+      <h3>Completeness</h3>
+      <p class="verdict" id="completeness-verdict"></p>
+      <p class="detail" id="completeness-detail"></p>
+    </article>
+  </div>
+  <div class="inspector" id="inspector">
+    <h3>The tile set</h3>
+    <p class="detail" id="inspector-note"></p>
+    <div class="tiles" id="tiles"></div>
+  </div>
+</section>
+
+<section class="notes">
+  <h2>The parts that are easy to get wrong</h2>
+  <div class="note-grid">
+    <article>
+      <h3>Rotation changes the problem</h3>
+      <p>A Wang tile is placed as it is. Allowing a tile to turn quietly replaces the tile set
+      with its rotation closure, which is a different set with different answers, and the
+      undecidability result that makes these interesting is about the version that does not
+      turn. Nothing in this program rotates a tile.</p>
+    </article>
+    <article>
+      <h3>A scanline placer can strand itself</h3>
+      <p>Left to right, top to bottom, each cell is constrained by the tile above and the tile
+      to its left. If the set has no tile for some (north, west) pair, the placer eventually
+      reaches that pair and has nowhere to go. The stochastic sets here are complete by
+      construction and the page checks it pair by pair. The Jeandel-Rao set is not complete,
+      strands a naive pass 100 times out of 100, and gets the backtracking solver instead.</p>
+    </article>
+    <article>
+      <h3>Aperiodic is not the same as random</h3>
+      <p>A stochastic two colour tiling is random, and random is not aperiodic. The
+      Jeandel-Rao set of 11 tiles is genuinely aperiodic: it tiles the plane and admits no
+      periodic tiling at all. That was proven by Emmanuel Jeandel and Michael Rao in
+      arXiv:1506.06492, not here. What this program checks is weaker and is stated as such:
+      the set tiles large squares, and an exhaustive search finds no tiling of any torus up to
+      5 by 5. Both would fail on a mistranscribed digit, and one of them did.</p>
+    </article>
+    <article>
+      <h3>Truchet curves join only under a condition</h3>
+      <p>Cyril Stanley Smith's arcs join because every tile presents an endpoint at all four
+      edge midpoints, so any orientation meets any neighbour. Draw one quarter arc per tile
+      instead and most curves end in mid air. Both are here, because a continuity checker that
+      only ever sees valid input proves nothing. The original diagonal tile has its endpoints
+      at the corners, where four cells meet, and continuity needs every interior vertex to
+      have an even number of line ends. The fields that satisfy that are exactly
+      a[row] xor b[column], and nothing else.</p>
+    </article>
+  </div>
+  <p class="colophon">No network requests, no fonts, no build step, no analytics. The whole
+  tool is this one file. The command line version writes the same SVG byte for byte.</p>
+</section>
+
+<script type="module">
+/* ---- src/rng.mjs ---- */
+// A small deterministic PRNG, seeded from a string.
+//
+// Determinism is a product requirement here, not a convenience. A named seed has to
+// reproduce a tiling exactly, in Node and in the browser, today and next year, because
+// that is what makes an output shareable and what makes the tests meaningful. So this
+// uses an explicit algorithm with 32 bit arithmetic rather than Math.random, and never
+// touches Date, crypto, or any other ambient source.
+//
+// cyrb128 spreads a string into four 32 bit words; sfc32 is the generator. Both are
+// public domain constructions widely used for exactly this purpose.
+
+function cyrb128(str) {
+  let h1 = 1779033703, h2 = 3144134277, h3 = 1013904242, h4 = 2773480762;
+  for (let i = 0; i < str.length; i++) {
+    const k = str.charCodeAt(i);
+    h1 = h2 ^ Math.imul(h1 ^ k, 597399067);
+    h2 = h3 ^ Math.imul(h2 ^ k, 2869860233);
+    h3 = h4 ^ Math.imul(h3 ^ k, 951274213);
+    h4 = h1 ^ Math.imul(h4 ^ k, 2716044179);
+  }
+  h1 = Math.imul(h3 ^ (h1 >>> 18), 597399067);
+  h2 = Math.imul(h4 ^ (h2 >>> 22), 2869860233);
+  h3 = Math.imul(h1 ^ (h3 >>> 17), 951274213);
+  h4 = Math.imul(h2 ^ (h4 >>> 19), 2716044179);
+  return [(h1 ^ h2 ^ h3 ^ h4) >>> 0, (h2 ^ h1) >>> 0, (h3 ^ h1) >>> 0, (h4 ^ h1) >>> 0];
+}
+
+function makeRng(seed) {
+  const [a0, b0, c0, d0] = cyrb128(String(seed));
+  let a = a0, b = b0, c = c0, d = d0;
+
+  // sfc32. Returns a float in [0, 1).
+  function next() {
+    a >>>= 0; b >>>= 0; c >>>= 0; d >>>= 0;
+    let t = (a + b) | 0;
+    a = b ^ (b >>> 9);
+    b = (c + (c << 3)) | 0;
+    c = (c << 21) | (c >>> 11);
+    d = (d + 1) | 0;
+    t = (t + d) | 0;
+    c = (c + t) | 0;
+    return (t >>> 0) / 4294967296;
+  }
+
+  // Rejection sampling rather than a modulo, so every value of n is uniform. A modulo
+  // biases the low outcomes, which for a 3 colour tile set is visible in the output.
+  function int(n) {
+    if (n <= 0) throw new Error(`int(${n}) needs a positive bound`);
+    const limit = Math.floor(4294967296 / n) * n;
+    for (;;) {
+      const raw = Math.floor(next() * 4294967296);
+      if (raw < limit) return raw % n;
+    }
+  }
+
+  return {
+    next,
+    int,
+    pick(items) { return items[int(items.length)]; },
+    shuffle(items) {
+      const out = items.slice();
+      for (let i = out.length - 1; i > 0; i--) {
+        const j = int(i + 1);
+        [out[i], out[j]] = [out[j], out[i]];
+      }
+      return out;
+    },
+  };
+}
+
+/* ---- src/wang.mjs ---- */
+// Edge-coloured Wang tiles: the tile sets, the completeness invariant, and the placers.
+//
+// A Wang tile is a unit square whose four edges carry colours. Tiles are placed on a grid
+// without rotation and without reflection, and two tiles may sit side by side only if the
+// colours on the edge they share are equal. Allowing rotation is a different problem with
+// different answers, so nothing here ever rotates a tile.
+//
+// The property that makes a set usable for scanline placement is completeness: for every
+// pair (a, b) where a is the south colour of some tile and b is the east colour of some
+// tile, the set must contain at least one tile with north = a and west = b. Those are
+// exactly the constraints a left-to-right, top-to-bottom placer can meet, so a complete set
+// never strands the placer, and an incomplete one eventually will. `completenessReport`
+// checks that pair by pair, and the test suite asserts it.
+//
+// The Jeandel-Rao set is deliberately not complete. It is aperiodic, which means it tiles
+// the plane but admits no periodic tiling at all, and no scanline placer can handle it. It
+// gets the backtracking solver instead.
+
+const DIRS = ['n', 'e', 's', 'w'];
+
+function tile(n, e, s, w) {
+  return { n, e, s, w };
+}
+
+// ---------------------------------------------------------------- tile set construction
+
+/** Every tile over `colours` colours: colours^4 of them. Trivially complete. */
+function fullSet(colours) {
+  const tiles = [];
+  for (let n = 0; n < colours; n++)
+    for (let e = 0; e < colours; e++)
+      for (let s = 0; s < colours; s++)
+        for (let w = 0; w < colours; w++)
+          tiles.push(tile(n, e, s, w));
+  return tiles;
+}
+
+/**
+ * A reduced complete set: colours^2 * choices tiles, with exactly `choices` tiles for
+ * every (north, west) constraint pair.
+ *
+ * This is the shape used for stochastic texture tiling, where the point is to have enough
+ * freedom at each step to avoid visible repetition without carrying the whole colours^4
+ * set. With 2 colours and 2 choices it is the familiar 8 tile set.
+ */
+function reducedCompleteSet(colours, choices) {
+  const combos = [];
+  for (let e = 0; e < colours; e++)
+    for (let s = 0; s < colours; s++)
+      combos.push([e, s]);
+  if (choices < 1 || choices > combos.length) {
+    throw new Error(`choices must be between 1 and ${combos.length} for ${colours} colours`);
+  }
+  const tiles = [];
+  let pair = 0;
+  for (let n = 0; n < colours; n++) {
+    for (let w = 0; w < colours; w++) {
+      for (let k = 0; k < choices; k++) {
+        const [e, s] = combos[(pair * choices + k) % combos.length];
+        tiles.push(tile(n, e, s, w));
+      }
+      pair++;
+    }
+  }
+  return tiles;
+}
+
+/**
+ * The Jeandel-Rao aperiodic set of 11 Wang tiles.
+ *
+ * Source: Emmanuel Jeandel and Michael Rao, "An aperiodic set of 11 Wang tiles",
+ * arXiv:1506.06492. The numbers below are transcribed from Sebastien Labbe's `slabbe`
+ * documentation (labri.fr/perso/slabbe/docs/0.7/wang_tiles.html), which gives each tile as
+ * (right, top, left, bottom).
+ *
+ * Aperiodicity was proven by Jeandel and Rao, not here. What this project verifies
+ * computationally is weaker and is stated as such: the set tiles large squares, and it
+ * admits no tiling of any torus up to a bound the tests search exhaustively. Both are
+ * necessary conditions for aperiodicity, and both would fail on a mistranscription. An
+ * earlier draft of this file had one digit wrong and the 12x12 search proved unsatisfiable,
+ * which is how the error was found.
+ */
+function jeandelRaoSet() {
+  const raw = [
+    [2, 4, 2, 1], [2, 2, 2, 0], [1, 1, 3, 1], [1, 2, 3, 2], [3, 1, 3, 3], [0, 1, 3, 1],
+    [0, 0, 0, 1], [3, 1, 0, 2], [0, 2, 1, 2], [1, 2, 1, 4], [3, 3, 1, 2],
+  ];
+  return raw.map(([right, top, left, bottom]) => tile(top, right, bottom, left));
+}
+
+const TILE_SETS = {
+  'stochastic-2': {
+    label: 'Stochastic, 2 colours, 8 tiles',
+    build: () => reducedCompleteSet(2, 2),
+    note: 'Complete by construction: two tiles for every (north, west) pair.',
+  },
+  'stochastic-3': {
+    label: 'Stochastic, 3 colours, 18 tiles',
+    build: () => reducedCompleteSet(3, 2),
+    note: 'Complete by construction: two tiles for every (north, west) pair.',
+  },
+  'stochastic-4': {
+    label: 'Stochastic, 4 colours, 48 tiles',
+    build: () => reducedCompleteSet(4, 3),
+    note: 'Complete by construction: three tiles for every (north, west) pair.',
+  },
+  'full-2': {
+    label: 'Full, 2 colours, 16 tiles',
+    build: () => fullSet(2),
+    note: 'Every tile over 2 colours. Any assignment of edge colours is realisable, '
+      + 'so seamless wrapping needs no search.',
+  },
+  'full-3': {
+    label: 'Full, 3 colours, 81 tiles',
+    build: () => fullSet(3),
+    note: 'Every tile over 3 colours. Any assignment of edge colours is realisable.',
+  },
+  'jeandel-rao': {
+    label: 'Jeandel-Rao, 11 tiles, aperiodic',
+    build: jeandelRaoSet,
+    note: 'Aperiodic, proven by Jeandel and Rao (arXiv:1506.06492). Not complete, so it '
+      + 'needs the backtracking solver, and it admits no seamless wrap because it admits '
+      + 'no periodic tiling at all.',
+  },
+};
+
+function buildTileSet(name) {
+  const entry = TILE_SETS[name];
+  if (!entry) {
+    throw new Error(`unknown tile set ${JSON.stringify(name)}; `
+      + `known sets are ${Object.keys(TILE_SETS).join(', ')}`);
+  }
+  const tiles = entry.build();
+  return { name, label: entry.label, note: entry.note, tiles };
+}
+
+// ------------------------------------------------------------------------ completeness
+
+function alphabet(tiles, dir) {
+  return [...new Set(tiles.map((t) => t[dir]))].sort((a, b) => a - b);
+}
+
+/**
+ * Check the invariant a scanline placer depends on, pair by pair.
+ *
+ * The constraint a placer meets at an interior cell is (north = south colour of the tile
+ * above, west = east colour of the tile to the left). So the pairs that can arise are
+ * exactly southAlphabet x eastAlphabet, and the set is complete when every one of them has
+ * a tile. Reporting the minimum count as well as the boolean matters: a set with exactly
+ * one tile per pair is complete but produces a single forced tiling, which is not what
+ * anyone wants from a stochastic set.
+ */
+function completenessReport(tiles) {
+  const norths = alphabet(tiles, 's');
+  const wests = alphabet(tiles, 'e');
+  const counts = [];
+  const missing = [];
+  for (const n of norths) {
+    for (const w of wests) {
+      const count = tiles.filter((t) => t.n === n && t.w === w).length;
+      counts.push({ north: n, west: w, count });
+      if (count === 0) missing.push({ north: n, west: w });
+    }
+  }
+  return {
+    complete: missing.length === 0,
+    pairs: counts.length,
+    missing,
+    minChoices: counts.length ? Math.min(...counts.map((c) => c.count)) : 0,
+    maxChoices: counts.length ? Math.max(...counts.map((c) => c.count)) : 0,
+    northAlphabet: norths,
+    westAlphabet: wests,
+    alphabets: Object.fromEntries(DIRS.map((d) => [d, alphabet(tiles, d)])),
+  };
+}
+
+// ----------------------------------------------------------------------------- placers
+
+function emptyGrid(width, height) {
+  return new Int32Array(width * height).fill(-1);
+}
+
+/**
+ * Left to right, top to bottom, one pass, no backtracking.
+ *
+ * On a complete set this cannot fail, and it throws rather than degrading if it somehow
+ * does, because a placer that quietly leaves a hole produces output that looks fine at a
+ * glance and violates the whole point of the exercise. On an incomplete set it will strand
+ * itself, and `naiveScanlineTrial` exists to measure how often.
+ */
+function placeScanline(tiles, width, height, rng) {
+  const grid = emptyGrid(width, height);
+  for (let r = 0; r < height; r++) {
+    for (let c = 0; c < width; c++) {
+      const north = r > 0 ? tiles[grid[(r - 1) * width + c]].s : null;
+      const west = c > 0 ? tiles[grid[r * width + (c - 1)]].e : null;
+      const options = [];
+      for (let i = 0; i < tiles.length; i++) {
+        if (north !== null && tiles[i].n !== north) continue;
+        if (west !== null && tiles[i].w !== west) continue;
+        options.push(i);
+      }
+      if (options.length === 0) {
+        throw new Error(`scanline stranded at row ${r} column ${c} with north=${north} `
+          + `west=${west}; this tile set is not complete, use the backtracking solver`);
+      }
+      grid[r * width + c] = options[rng.int(options.length)];
+    }
+  }
+  return grid;
+}
+
+/**
+ * One scanline attempt that reports failure instead of throwing.
+ *
+ * Used to put a number on what happens when you point a naive placer at a set that does not
+ * guarantee it can be placed. The answer for the Jeandel-Rao set is that it strands almost
+ * immediately, and the README quotes the measurement rather than an adjective.
+ */
+function naiveScanlineTrial(tiles, width, height, rng) {
+  const grid = emptyGrid(width, height);
+  for (let r = 0; r < height; r++) {
+    for (let c = 0; c < width; c++) {
+      const north = r > 0 ? tiles[grid[(r - 1) * width + c]].s : null;
+      const west = c > 0 ? tiles[grid[r * width + (c - 1)]].e : null;
+      const options = [];
+      for (let i = 0; i < tiles.length; i++) {
+        if (north !== null && tiles[i].n !== north) continue;
+        if (west !== null && tiles[i].w !== west) continue;
+        options.push(i);
+      }
+      if (options.length === 0) {
+        return { ok: false, placed: r * width + c, row: r, column: c };
+      }
+      grid[r * width + c] = options[rng.int(options.length)];
+    }
+  }
+  return { ok: true, placed: width * height, grid };
+}
+
+/**
+ * Place a full colours^4 set by choosing the edge colours directly.
+ *
+ * For a full set every combination of four edge colours is a tile, so the grid of edge
+ * colours can be chosen freely and the tiles read off afterwards. That makes seamless
+ * wrapping exact and free: identify the last edge row with the first and the last edge
+ * column with the first, and the tiling meets itself. No search, no failure mode.
+ */
+function placeByEdges(tiles, width, height, rng, { torus = false } = {}) {
+  const palette = alphabet(tiles, 'n');
+  const size = palette.length;
+  if (tiles.length !== size ** 4) {
+    throw new Error(`placeByEdges needs a full set of ${size ** 4} tiles, got ${tiles.length}`);
+  }
+  const index = new Map();
+  for (let i = 0; i < tiles.length; i++) {
+    const t = tiles[i];
+    index.set(`${t.n},${t.e},${t.s},${t.w}`, i);
+  }
+  // horizontal[r][c] is the colour of the horizontal edge above row r, for r in 0..height.
+  const horizontal = [];
+  for (let r = 0; r <= height; r++) {
+    if (torus && r === height) { horizontal.push(horizontal[0].slice()); continue; }
+    horizontal.push(Array.from({ length: width }, () => palette[rng.int(size)]));
+  }
+  // vertical[r][c] is the colour of the vertical edge left of column c, for c in 0..width.
+  const vertical = [];
+  for (let r = 0; r < height; r++) {
+    const row = Array.from({ length: width + 1 }, () => palette[rng.int(size)]);
+    if (torus) row[width] = row[0];
+    vertical.push(row);
+  }
+  const grid = emptyGrid(width, height);
+  for (let r = 0; r < height; r++) {
+    for (let c = 0; c < width; c++) {
+      const key = `${horizontal[r][c]},${vertical[r][c + 1]},${horizontal[r + 1][c]},${vertical[r][c]}`;
+      const found = index.get(key);
+      if (found === undefined) throw new Error(`full set is missing tile ${key}`);
+      grid[r * width + c] = found;
+    }
+  }
+  return grid;
+}
+
+// ------------------------------------------------------- propagating backtracking solver
+
+/**
+ * Arc-consistent domains plus minimum-remaining-values backtracking.
+ *
+ * Needed for any set that is not complete, and for seamless wrapping of a set that is
+ * complete but not full. The search is exhaustive within a step budget, so a result of
+ * `unsat` means the solver looked everywhere and there is genuinely no tiling, while
+ * `capped` means it ran out of budget and knows nothing. Collapsing those two into one
+ * "no" would be the silent-failure pattern: the aperiodicity evidence in the test suite
+ * depends on `unsat` meaning proven.
+ */
+function solveConstrained(tiles, width, height, rng, options = {}) {
+  const { torus = false, maxSteps = 200000 } = options;
+  const count = tiles.length;
+  const words = Math.ceil(count / 32);
+  const cells = width * height;
+
+  // compat[dir] maps a tile index to the bitset of tiles allowed in that direction.
+  const right = new Uint32Array(count * words);
+  const left = new Uint32Array(count * words);
+  const down = new Uint32Array(count * words);
+  const up = new Uint32Array(count * words);
+  for (let i = 0; i < count; i++) {
+    for (let j = 0; j < count; j++) {
+      if (tiles[i].e === tiles[j].w) {
+        right[i * words + (j >> 5)] |= 1 << (j & 31);
+        left[j * words + (i >> 5)] |= 1 << (i & 31);
+      }
+      if (tiles[i].s === tiles[j].n) {
+        down[i * words + (j >> 5)] |= 1 << (j & 31);
+        up[j * words + (i >> 5)] |= 1 << (i & 31);
+      }
+    }
+  }
+
+  // A torus one cell wide wraps a tile onto itself, which is a unary constraint rather than
+  // a binary one: the tile's east edge must equal its own west edge. Arc consistency between
+  // distinct cells never sees it, so it is applied to the starting domains instead. Leaving
+  // it out made the 1xN and Nx1 torus searches vacuously satisfiable, which in turn made the
+  // aperiodicity evidence report nine periodic tilings that do not exist.
+  const selfAllowed = (i) => {
+    if (torus && width === 1 && tiles[i].e !== tiles[i].w) return false;
+    if (torus && height === 1 && tiles[i].s !== tiles[i].n) return false;
+    return true;
+  };
+  const fullMask = new Uint32Array(words);
+  for (let i = 0; i < count; i++) {
+    if (selfAllowed(i)) fullMask[i >> 5] |= 1 << (i & 31);
+  }
+  if (fullMask.every((word) => word === 0)) {
+    return { status: 'unsat', steps: 0, grid: null };
+  }
+
+  const neighbours = (k) => {
+    const r = (k / width) | 0;
+    const c = k % width;
+    const out = [];
+    if (c + 1 < width) out.push([k + 1, right]);
+    else if (torus && width > 1) out.push([r * width, right]);
+    if (c > 0) out.push([k - 1, left]);
+    else if (torus && width > 1) out.push([r * width + width - 1, left]);
+    if (r + 1 < height) out.push([k + width, down]);
+    else if (torus && height > 1) out.push([c, down]);
+    if (r > 0) out.push([k - width, up]);
+    else if (torus && height > 1) out.push([(height - 1) * width + c, up]);
+    return out;
+  };
+  const neighbourCache = Array.from({ length: cells }, (_, k) => neighbours(k));
+
+  function propagate(dom, seeds) {
+    const queue = seeds.slice();
+    const allowed = new Uint32Array(words);
+    while (queue.length) {
+      const k = queue.pop();
+      for (const [m, table] of neighbourCache[k]) {
+        allowed.fill(0);
+        for (let word = 0; word < words; word++) {
+          let bits = dom[k * words + word];
+          while (bits) {
+            const bit = bits & -bits;
+            const i = (word << 5) + (31 - Math.clz32(bit >>> 0));
+            bits ^= bit;
+            for (let x = 0; x < words; x++) allowed[x] |= table[i * words + x];
+          }
+        }
+        let changed = false;
+        let empty = true;
+        for (let x = 0; x < words; x++) {
+          const before = dom[m * words + x];
+          const after = before & allowed[x];
+          if (after !== before) { dom[m * words + x] = after; changed = true; }
+          if (after !== 0) empty = false;
+        }
+        if (empty) return false;
+        if (changed) queue.push(m);
+      }
+    }
+    return true;
+  }
+
+  const popcount = (dom, k) => {
+    let total = 0;
+    for (let x = 0; x < words; x++) {
+      let v = dom[k * words + x];
+      v -= (v >>> 1) & 0x55555555;
+      v = (v & 0x33333333) + ((v >>> 2) & 0x33333333);
+      total += (((v + (v >>> 4)) & 0x0f0f0f0f) * 0x01010101) >>> 24;
+    }
+    return total;
+  };
+
+  const domain = new Uint32Array(cells * words);
+  for (let k = 0; k < cells; k++) domain.set(fullMask, k * words);
+
+  let steps = 0;
+  let capped = false;
+
+  function search(dom) {
+    if (steps >= maxSteps) { capped = true; return null; }
+    steps++;
+    let best = -1;
+    let bestCount = Infinity;
+    for (let k = 0; k < cells; k++) {
+      const n = popcount(dom, k);
+      if (n > 1 && n < bestCount) { bestCount = n; best = k; }
+    }
+    if (best < 0) return dom;
+    const options = [];
+    for (let i = 0; i < count; i++) {
+      if (dom[best * words + (i >> 5)] & (1 << (i & 31))) options.push(i);
+    }
+    for (const i of rng.shuffle(options)) {
+      const next = dom.slice();
+      next.fill(0, best * words, best * words + words);
+      next[best * words + (i >> 5)] = 1 << (i & 31);
+      if (propagate(next, [best])) {
+        const result = search(next);
+        if (result) return result;
+      }
+      if (capped) return null;
+    }
+    return null;
+  }
+
+  const seeds = Array.from({ length: cells }, (_, k) => k);
+  if (!propagate(domain, seeds)) {
+    return { status: 'unsat', steps: 0, grid: null };
+  }
+  const solved = search(domain);
+  if (solved) {
+    const grid = emptyGrid(width, height);
+    for (let k = 0; k < cells; k++) {
+      for (let i = 0; i < count; i++) {
+        if (solved[k * words + (i >> 5)] & (1 << (i & 31))) { grid[k] = i; break; }
+      }
+    }
+    return { status: 'sat', steps, grid };
+  }
+  return { status: capped ? 'capped' : 'unsat', steps, grid: null };
+}
+
+// ------------------------------------------------------------------- the matching check
+
+/**
+ * Every interior edge must have the same colour on both sides.
+ *
+ * Returns the list of violations rather than a boolean, so a caller can say what broke.
+ * On a torus the wrap edges are interior too, which is exactly what makes the output
+ * seamless, so they are checked the same way.
+ */
+function checkEdgeMatching(tiles, grid, width, height, { torus = false } = {}) {
+  const violations = [];
+  const at = (r, c) => tiles[grid[r * width + c]];
+  for (let r = 0; r < height; r++) {
+    for (let c = 0; c < width; c++) {
+      const here = at(r, c);
+      if (here === undefined) {
+        violations.push({ row: r, column: c, edge: 'cell', detail: 'no tile placed' });
+        continue;
+      }
+      // On a torus one cell wide the east edge is glued to the west edge of the same tile.
+      // The neighbour comparison below cannot express that, so it is checked here. The
+      // solver applies the same constraint when it searches; without this the checker would
+      // agree with a solver that had dropped it.
+      if (torus && width === 1 && here.e !== here.w) {
+        violations.push({
+          row: r, column: c, edge: 'east',
+          detail: `one cell wide on a torus: east ${here.e} against its own west ${here.w}`,
+        });
+      }
+      if (torus && height === 1 && here.s !== here.n) {
+        violations.push({
+          row: r, column: c, edge: 'south',
+          detail: `one cell tall on a torus: south ${here.s} against its own north ${here.n}`,
+        });
+      }
+      const hasEast = c + 1 < width || (torus && width > 1);
+      if (hasEast) {
+        const other = at(r, (c + 1) % width);
+        if (here.e !== other.w) {
+          violations.push({
+            row: r, column: c, edge: 'east',
+            detail: `east ${here.e} against west ${other.w}`,
+          });
+        }
+      }
+      const hasSouth = r + 1 < height || (torus && height > 1);
+      if (hasSouth) {
+        const other = at((r + 1) % height, c);
+        if (here.s !== other.n) {
+          violations.push({
+            row: r, column: c, edge: 'south',
+            detail: `south ${here.s} against north ${other.n}`,
+          });
+        }
+      }
+    }
+  }
+  return violations;
+}
+
+/* ---- src/truchet.mjs ---- */
+// Truchet tiles: the arc family, the diagonal family, and what continuity actually costs.
+//
+// Two families live here and they behave very differently, which is the interesting part.
+//
+// SMITH ARCS. Cyril Stanley Smith's 1987 variant of Truchet's tile draws two quarter arcs
+// of radius 1/2 centred on opposite corners. In orientation 0 the centres are north-west
+// and south-east; in orientation 1 they are north-east and south-west. Either way the four
+// arc endpoints land on the midpoints of all four edges. Every tile therefore presents a
+// curve endpoint at every edge, so any orientation meets any neighbour and continuity is
+// structural. Random placement is safe.
+//
+// A QUARTER ARC PER TILE is the version that does not work, and it is the usual bug. One
+// arc in a randomly chosen corner touches only two of the four edges, so a neighbour that
+// offers an endpoint on the shared edge frequently meets one that does not, and the curves
+// end in mid air. `freeQuarterArcField` builds exactly that, on purpose, so the continuity
+// checker has something it must reject. A checker that only ever sees valid input proves
+// nothing.
+//
+// DIAGONALS. Truchet's original tile is split by a diagonal, and here the endpoints sit at
+// the corners rather than the edge midpoints. Four cells meet at every interior vertex, and
+// each contributes an endpoint there or not:
+//
+//   degree = (1 - x[r-1][c-1]) + x[r-1][c] + x[r][c-1] + (1 - x[r][c])
+//
+// writing x = 1 for the south-west to north-east diagonal. An odd degree leaves a line
+// ending in mid air, so continuity requires every interior vertex to be even, which reduces
+// to the xor of every 2x2 block of the field being zero. That has a complete and rather
+// pretty solution: x[r][c] = a[r] xor b[c] for a row vector a and a column vector b, and
+// nothing else. The count agrees, 2^(H+W-1) configurations for both, and
+// `enumerateValidDiagonalFields` checks it exhaustively on small grids in the test suite.
+//
+// So unconstrained random diagonals are broken almost everywhere, and the fix is not a
+// repair pass. The valid configurations form a thin, highly structured subset of all of
+// them, and generating from a and b lands inside it by construction. It also makes the
+// seamless case free, since a and b wrap with no extra condition.
+
+const ARC_ORIENTATIONS = 2;
+
+/** Smith arcs. Any orientation meets any neighbour, so this needs no constraint at all. */
+function arcField(width, height, rng) {
+  const field = new Uint8Array(width * height);
+  for (let i = 0; i < field.length; i++) field[i] = rng.int(ARC_ORIENTATIONS);
+  return field;
+}
+
+/**
+ * One quarter arc per tile in a random corner: 0 north-west, 1 north-east, 2 south-east,
+ * 3 south-west. Included because it is the shape of the mistake, not because it is useful.
+ */
+function freeQuarterArcField(width, height, rng) {
+  const field = new Uint8Array(width * height);
+  for (let i = 0; i < field.length; i++) field[i] = rng.int(4);
+  return field;
+}
+
+/** Which two edges a quarter arc in `corner` touches, as booleans in n, e, s, w order. */
+function quarterArcEdges(corner) {
+  switch (corner) {
+    case 0: return [true, false, false, true];   // north-west: north and west midpoints
+    case 1: return [true, true, false, false];   // north-east
+    case 2: return [false, true, true, false];   // south-east
+    case 3: return [false, false, true, true];   // south-west
+    default: throw new Error(`corner must be 0..3, got ${corner}`);
+  }
+}
+
+/**
+ * A diagonal field with no dangling endpoints anywhere, seamless included.
+ *
+ * Every such field is x[r][c] = a[r] xor b[c], so drawing a and b at random draws uniformly
+ * from the valid set. The map is two to one, since (a, b) and (a xor 1, b xor 1) describe
+ * the same field, which is why 2^(height + width) draws give 2^(height + width - 1) fields.
+ */
+function diagonalField(width, height, rng) {
+  const rows = new Uint8Array(height);
+  const cols = new Uint8Array(width);
+  for (let r = 0; r < height; r++) rows[r] = rng.int(2);
+  for (let c = 0; c < width; c++) cols[c] = rng.int(2);
+  const field = new Uint8Array(width * height);
+  for (let r = 0; r < height; r++) {
+    for (let c = 0; c < width; c++) field[r * width + c] = rows[r] ^ cols[c];
+  }
+  return field;
+}
+
+/** Unconstrained random diagonals: the version with broken curves. */
+function freeDiagonalField(width, height, rng) {
+  const field = new Uint8Array(width * height);
+  for (let i = 0; i < field.length; i++) field[i] = rng.int(2);
+  return field;
+}
+
+/**
+ * Interior vertices whose diagonal endpoint count is odd, meaning a line dangles there.
+ *
+ * On a torus every vertex is interior, which is what makes a wrapped diagonal tiling
+ * genuinely seamless rather than merely aligned.
+ */
+function checkDiagonalContinuity(field, width, height, { torus = false } = {}) {
+  const at = (r, c) => field[((r % height) + height) % height * width + ((c % width) + width) % width];
+  const violations = [];
+  const firstRow = torus ? 0 : 1;
+  const firstCol = torus ? 0 : 1;
+  for (let r = firstRow; r < height; r++) {
+    for (let c = firstCol; c < width; c++) {
+      const nw = at(r - 1, c - 1);
+      const ne = at(r - 1, c);
+      const sw = at(r, c - 1);
+      const se = at(r, c);
+      const degree = (1 - nw) + ne + sw + (1 - se);
+      if (degree % 2 !== 0) {
+        violations.push({ vertexRow: r, vertexColumn: c, degree });
+      }
+    }
+  }
+  return violations;
+}
+
+/**
+ * Interior edges where the two sides disagree about whether a curve crosses.
+ *
+ * For Smith arcs this is always empty, and it is still worth computing: the claim "these
+ * curves are continuous" should be a measurement rather than an argument, and the same
+ * function has to reject the quarter arc field, which it does.
+ */
+function checkArcContinuity(field, width, height, { torus = false, family = 'arcs' } = {}) {
+  const touches = (index) => {
+    if (family === 'arcs') return [true, true, true, true];
+    return quarterArcEdges(field[index]);
+  };
+  const violations = [];
+  for (let r = 0; r < height; r++) {
+    for (let c = 0; c < width; c++) {
+      const here = touches(r * width + c);
+      // A torus one cell wide glues a cell's east edge to its own west edge, which is a
+      // constraint on the single cell rather than between two of them. The loop below never
+      // sees it, because it compares a cell with a neighbour and here there is none, so it
+      // is applied separately. Leaving it out made every 1xN and Nx1 torus report clean, and
+      // the solver already carries the matching fix for the same reason.
+      if (torus && width === 1 && here[1] !== here[3]) {
+        violations.push({
+          row: r, column: c, edge: 'east',
+          detail: 'one cell wide on a torus: the east edge is glued to its own west edge and '
+            + `they disagree (${here[1] ? 'endpoint' : 'blank'} against `
+            + `${here[3] ? 'endpoint' : 'blank'})`,
+        });
+      }
+      if (torus && height === 1 && here[2] !== here[0]) {
+        violations.push({
+          row: r, column: c, edge: 'south',
+          detail: 'one cell tall on a torus: the south edge is glued to its own north edge '
+            + `and they disagree (${here[2] ? 'endpoint' : 'blank'} against `
+            + `${here[0] ? 'endpoint' : 'blank'})`,
+        });
+      }
+      const hasEast = c + 1 < width || (torus && width > 1);
+      if (hasEast) {
+        const other = touches(r * width + ((c + 1) % width));
+        if (here[1] !== other[3]) {
+          violations.push({
+            row: r, column: c, edge: 'east',
+            detail: here[1] ? 'endpoint meets a blank edge' : 'blank edge meets an endpoint',
+          });
+        }
+      }
+      const hasSouth = r + 1 < height || (torus && height > 1);
+      if (hasSouth) {
+        const other = touches(((r + 1) % height) * width + c);
+        if (here[2] !== other[0]) {
+          violations.push({
+            row: r, column: c, edge: 'south',
+            detail: here[2] ? 'endpoint meets a blank edge' : 'blank edge meets an endpoint',
+          });
+        }
+      }
+    }
+  }
+  return violations;
+}
+
+/**
+ * Every diagonal field on a small grid that has no dangling interior endpoint.
+ *
+ * Brute force over all 2^(width*height) fields. Only useful up to about 4x4, which is the
+ * point: it is the ground truth the closed form is checked against, and it shares no code
+ * with `diagonalField`.
+ */
+function enumerateValidDiagonalFields(width, height) {
+  const cells = width * height;
+  if (cells > 20) throw new Error(`refusing to enumerate 2^${cells} fields`);
+  const valid = [];
+  for (let mask = 0; mask < (1 << cells); mask++) {
+    const field = new Uint8Array(cells);
+    for (let i = 0; i < cells; i++) field[i] = (mask >> i) & 1;
+    if (checkDiagonalContinuity(field, width, height).length === 0) valid.push(mask);
+  }
+  return valid;
+}
+
+/* ---- src/model.mjs ---- */
+// Turn a set of options into a tiling, and say honestly how it was placed.
+//
+// The placement method is chosen from a property of the tile set rather than from a guess,
+// and it is recorded in the model so the tool can tell the user which guarantee applies.
+// There are three:
+//
+//   edges      a full colours^4 set contains every tile, so the grid of edge colours can be
+//              chosen freely and the tiles read off. No search, cannot fail, and seamless
+//              wrapping is exact because the last edge row is literally the first.
+//   scanline   a complete set has a tile for every (north, west) pair, so one pass places
+//              every cell and cannot strand. Verified by `completenessReport`, not assumed.
+//   solver     anything else. Arc consistency plus backtracking, which reports sat, unsat
+//              or capped, and never confuses the last two.
+//
+// The Jeandel-Rao set is aperiodic, so it admits no periodic tiling of any size at all, and
+// asking for a seamless wrap of it is asking for something that provably does not exist.
+// That is refused with an explanation rather than answered with a broken tiling.
+
+const FAMILIES = {
+  wang: {
+    label: 'Wang tiles, edge matched',
+    description: 'Unit squares with coloured edges, placed without rotation so that '
+      + 'touching edges agree.',
+  },
+  arcs: {
+    label: 'Truchet arcs (Smith)',
+    description: 'Two quarter arcs on opposite corners. Every tile presents an endpoint at '
+      + 'every edge midpoint, so the curves join whatever the orientation.',
+  },
+  'arcs-free': {
+    label: 'Single quarter arc (broken on purpose)',
+    description: 'One arc in a random corner. Touches two edges out of four, so most '
+      + 'curves end in mid air. Kept as the counterexample the continuity check must catch.',
+  },
+  diagonals: {
+    label: 'Truchet diagonals, continuous',
+    description: 'Corner to corner diagonals constrained so every interior vertex has an '
+      + 'even number of line ends. The valid fields are exactly a[row] xor b[column].',
+  },
+  'diagonals-free': {
+    label: 'Unconstrained diagonals (broken on purpose)',
+    description: 'Random diagonals with no constraint. Roughly half of all interior '
+      + 'vertices end up odd, which is a dangling line end at each one.',
+  },
+};
+
+const DEFAULTS = {
+  family: 'wang',
+  set: 'stochastic-2',
+  style: 'triangles',
+  palette: 'indigo',
+  width: 16,
+  height: 16,
+  seed: 'wang-1',
+  torus: false,
+  bands: 1,
+  weight: 0.16,
+};
+
+function normaliseOptions(options = {}) {
+  const merged = { ...DEFAULTS, ...options };
+  merged.width = Math.max(1, Math.round(Number(merged.width)));
+  merged.height = Math.max(1, Math.round(Number(merged.height)));
+  merged.bands = Math.max(1, Math.min(7, Math.round(Number(merged.bands))));
+  merged.weight = Math.max(0.02, Math.min(0.45, Number(merged.weight)));
+  merged.torus = Boolean(merged.torus);
+  merged.seed = String(merged.seed);
+  if (!FAMILIES[merged.family]) {
+    throw new Error(`unknown family ${JSON.stringify(merged.family)}; `
+      + `known families are ${Object.keys(FAMILIES).join(', ')}`);
+  }
+  return merged;
+}
+
+function buildWang(options) {
+  const { set, width, height, seed, torus } = options;
+  const tileSet = buildTileSet(set);
+  const { tiles } = tileSet;
+  const report = completenessReport(tiles);
+  const colours = alphabet(tiles, 'n').length;
+  const isFull = tiles.length === colours ** 4
+    && ['n', 'e', 's', 'w'].every((d) => alphabet(tiles, d).length === colours);
+  const rng = makeRng(`${seed}|${set}|${width}x${height}|${torus ? 'torus' : 'open'}`);
+
+  let grid;
+  let placement;
+  if (isFull) {
+    grid = placeByEdges(tiles, width, height, rng, { torus });
+    placement = {
+      method: 'edges',
+      guarantee: 'cannot fail: a full set contains a tile for every combination of edge '
+        + 'colours, so the edge colours are chosen directly and the tiles read off',
+      steps: width * height,
+    };
+  } else if (report.complete && !torus) {
+    grid = placeScanline(tiles, width, height, rng);
+    placement = {
+      method: 'scanline',
+      guarantee: `cannot strand: every one of the ${report.pairs} (north, west) constraint `
+        + `pairs has at least ${report.minChoices} admissible tile(s)`,
+      steps: width * height,
+    };
+  } else {
+    const maxSteps = Math.max(20000, width * height * 400);
+    const result = solveConstrained(tiles, width, height, rng, { torus, maxSteps });
+    if (result.status !== 'sat') {
+      const why = result.status === 'unsat'
+        ? 'the search was exhaustive and there is no tiling of this size'
+        : `the search hit its budget of ${maxSteps} steps and does not know whether one exists`;
+      throw new Error(`no tiling found for ${set} at ${width}x${height}`
+        + `${torus ? ' on a torus' : ''}: ${why}`);
+    }
+    grid = result.grid;
+    placement = {
+      method: 'solver',
+      guarantee: 'arc consistency plus backtracking; the set is not complete, so a single '
+        + 'scanline pass would strand',
+      steps: result.steps,
+    };
+  }
+  return { tileSet, tiles, grid, placement, completeness: report, colours };
+}
+
+function buildModel(rawOptions = {}) {
+  const options = normaliseOptions(rawOptions);
+  const { family, width, height, seed, torus } = options;
+
+  if (family === 'wang') {
+    if (options.set === 'jeandel-rao' && torus) {
+      throw new Error('the Jeandel-Rao set is aperiodic, so it admits no periodic tiling '
+        + 'of any size and cannot be wrapped seamlessly. This is not a limitation of the '
+        + 'solver; the tests search every torus up to 5x5 exhaustively and find none.');
+    }
+    const built = buildWang(options);
+    return { ...options, ...built, field: null };
+  }
+
+  const rng = makeRng(`${seed}|${family}|${width}x${height}|${torus ? 'torus' : 'open'}`);
+  let field;
+  let placement;
+  switch (family) {
+    case 'arcs':
+      field = arcField(width, height, rng);
+      placement = {
+        method: 'free',
+        guarantee: 'every Smith arc tile has an endpoint at all four edge midpoints, so any '
+          + 'orientation meets any neighbour and no constraint is needed',
+        steps: width * height,
+      };
+      break;
+    case 'arcs-free':
+      field = freeQuarterArcField(width, height, rng);
+      placement = {
+        method: 'free',
+        guarantee: 'none: this family is the counterexample and is expected to fail the '
+          + 'continuity check',
+        steps: width * height,
+      };
+      break;
+    case 'diagonals':
+      field = diagonalField(width, height, rng);
+      placement = {
+        method: 'xor',
+        guarantee: 'drawn from a[row] xor b[column], which is exactly the set of diagonal '
+          + 'fields with no dangling interior endpoint, wrapped or not',
+        steps: width + height,
+      };
+      break;
+    case 'diagonals-free':
+      field = freeDiagonalField(width, height, rng);
+      placement = {
+        method: 'free',
+        guarantee: 'none: this family is the counterexample and is expected to fail the '
+          + 'continuity check',
+        steps: width * height,
+      };
+      break;
+    default:
+      throw new Error(`family ${family} has no placer`);
+  }
+  return {
+    ...options, tileSet: null, tiles: null, grid: null, field, placement,
+    completeness: null, colours: 0,
+  };
+}
+
+/**
+ * Run every invariant that applies to this model and return the violations.
+ *
+ * The counterexample families are expected to produce violations. `expectClean` says
+ * whether a clean result is the correct outcome, so a caller can turn this into a pass or
+ * fail without hard-coding which families are which.
+ */
+function checkModel(model) {
+  const { family, width, height, torus } = model;
+  if (family === 'wang') {
+    return {
+      kind: 'edge-matching',
+      expectClean: true,
+      violations: checkEdgeMatching(model.tiles, model.grid, width, height, { torus }),
+    };
+  }
+  if (family === 'arcs' || family === 'arcs-free') {
+    return {
+      kind: 'curve-continuity',
+      expectClean: family === 'arcs',
+      violations: checkArcContinuity(model.field, width, height, { torus, family }),
+    };
+  }
+  return {
+    kind: 'curve-continuity',
+    expectClean: family === 'diagonals',
+    violations: checkDiagonalContinuity(model.field, width, height, { torus }),
+  };
+}
+
+/**
+ * Shift a tiling cyclically by whole cells.
+ *
+ * On a torus this maps a valid tiling to another valid tiling of the same torus, which is
+ * the basis of the exact seamlessness test: the rendering of the shifted tiling has to be
+ * the rendering of the original, shifted by the same number of cells worth of pixels. On an
+ * open boundary it is meaningless and the caller should not ask.
+ */
+function rollModel(model, rowShift, columnShift) {
+  const { width, height } = model;
+  const shift = (source) => {
+    const out = source.constructor === Int32Array
+      ? new Int32Array(source.length)
+      : new Uint8Array(source.length);
+    for (let r = 0; r < height; r++) {
+      for (let c = 0; c < width; c++) {
+        const sr = ((r + rowShift) % height + height) % height;
+        const sc = ((c + columnShift) % width + width) % width;
+        out[r * width + c] = source[sr * width + sc];
+      }
+    }
+    return out;
+  };
+  return {
+    ...model,
+    grid: model.grid ? shift(model.grid) : null,
+    field: model.field ? shift(model.field) : null,
+  };
+}
+
+/**
+ * How often a single naive scanline pass succeeds on a tile set.
+ *
+ * The honest answer to "what happens if you skip the solver". For a complete set this is
+ * 100 percent by construction; for the aperiodic set it is not, and the README quotes the
+ * measured number instead of describing it.
+ */
+function measureScanlineFailureRate(setName, width, height, trials, seedPrefix = 'trial') {
+  const { tiles } = buildTileSet(setName);
+  let succeeded = 0;
+  let totalPlaced = 0;
+  let firstFailure = null;
+  for (let i = 0; i < trials; i++) {
+    const rng = makeRng(`${seedPrefix}|${setName}|${i}`);
+    const result = naiveScanlineTrial(tiles, width, height, rng);
+    if (result.ok) succeeded += 1;
+    else if (!firstFailure) firstFailure = { row: result.row, column: result.column };
+    totalPlaced += result.placed;
+  }
+  return {
+    setName,
+    trials,
+    succeeded,
+    failureRate: (trials - succeeded) / trials,
+    meanCellsPlaced: totalPlaced / trials,
+    cells: width * height,
+    firstFailure,
+  };
+}
+
+/* ---- src/geometry.mjs ---- */
+// One description of what to draw, consumed by the SVG writer, the PNG rasteriser and the
+// browser canvas. Three renderers reading three descriptions is three chances to disagree.
+//
+// Coordinates are in user units with one cell equal to `cell`, origin at the top left, y
+// increasing downwards, which is the SVG and canvas convention. Angles are degrees measured
+// the same way, so a point at angle a sits at (cx + r cos a, cy + r sin a) and increasing a
+// turns clockwise on screen.
+//
+// BAND RADII. Drawing several concentric arcs per corner is the classic woven Truchet
+// look, and it has a condition attached that is easy to miss. An arc of radius r centred on
+// a corner meets the two adjacent edges at distance r from that corner. Across a shared
+// edge one cell measures that distance from the top corner and the other from the bottom,
+// so the endpoint positions agree only when the radius set is symmetric about half a cell.
+// `bandRadii` builds a symmetric set and `assertSymmetricRadii` refuses anything else,
+// because an asymmetric set produces curves that visibly stop short at every edge.
+
+const CORNER_ANGLES = { nw: 0, ne: 90, se: 180, sw: 270 };
+
+/** Corner offsets in cell units, in the same nw, ne, se, sw order. */
+const CORNER_OFFSETS = { nw: [0, 0], ne: [1, 0], se: [1, 1], sw: [0, 1] };
+
+function bandRadii(cell, bands) {
+  const count = Math.max(1, Math.round(bands));
+  if (count === 1) return [cell / 2];
+  const spread = cell * 0.5;
+  const step = spread / (count - 1);
+  const radii = [];
+  for (let j = 0; j < count; j++) radii.push(cell / 2 - spread / 2 + j * step);
+  return radii;
+}
+
+function assertSymmetricRadii(radii, cell) {
+  const sorted = radii.slice().sort((a, b) => a - b);
+  for (let i = 0, j = sorted.length - 1; i <= j; i++, j--) {
+    if (Math.abs((sorted[i] + sorted[j]) - cell) > 1e-9) {
+      throw new Error(`band radii must be symmetric about half a cell (${cell / 2}); `
+        + `${sorted[i]} and ${sorted[j]} sum to ${sorted[i] + sorted[j]}, not ${cell}. `
+        + 'An asymmetric set puts the two sides of an edge in different places and the '
+        + 'curves stop short.');
+    }
+  }
+  return true;
+}
+
+/**
+ * Bands pair up across an edge: the arc at radius cell/2 + d meets the one at cell/2 - d.
+ * Colouring by the distance from the middle therefore runs continuously along a curve,
+ * where colouring by the band index would change colour at every edge.
+ */
+function bandColourIndex(bandIndex, bandCount) {
+  return Math.min(bandIndex, bandCount - 1 - bandIndex);
+}
+
+function arcShape(cx, cy, r, corner, stroke, width) {
+  const from = CORNER_ANGLES[corner];
+  return { kind: 'arc', cx, cy, r, from, to: from + 90, stroke, width };
+}
+
+function wangTriangles(x0, y0, cell, tile, colours) {
+  const x1 = x0 + cell;
+  const y1 = y0 + cell;
+  const cx = x0 + cell / 2;
+  const cy = y0 + cell / 2;
+  return [
+    { kind: 'polygon', points: [[x0, y0], [x1, y0], [cx, cy]], fill: colours(tile.n) },
+    { kind: 'polygon', points: [[x1, y0], [x1, y1], [cx, cy]], fill: colours(tile.e) },
+    { kind: 'polygon', points: [[x1, y1], [x0, y1], [cx, cy]], fill: colours(tile.s) },
+    { kind: 'polygon', points: [[x0, y1], [x0, y0], [cx, cy]], fill: colours(tile.w) },
+  ];
+}
+
+/**
+ * Build the shape list for a model.
+ *
+ * `palette` supplies the colours; `colourFor` is passed in rather than imported so the
+ * caller controls the failure behaviour when an edge label has no colour.
+ */
+function buildPrimitives(model, options) {
+  const { palette, colourFor, cell = 100 } = options;
+  const weight = (options.weight ?? model.weight ?? 0.16) * cell;
+  const bands = options.bands ?? model.bands ?? 1;
+  const { width, height, family } = model;
+  const shapes = [];
+  const colours = (index) => colourFor(palette, index);
+
+  const radii = bandRadii(cell, bands);
+  assertSymmetricRadii(radii, cell);
+  const strokeFor = (bandIndex) => colours(bandColourIndex(bandIndex, radii.length) % palette.colours.length);
+
+  for (let r = 0; r < height; r++) {
+    for (let c = 0; c < width; c++) {
+      const x0 = c * cell;
+      const y0 = r * cell;
+      const index = r * width + c;
+
+      if (family === 'wang') {
+        const tile = model.tiles[model.grid[index]];
+        if (model.style === 'arcs') {
+          // The orientation has to be a function of the tile alone. A tile that draws
+          // itself differently depending on where it sits is not a tile.
+          const orientation = (tile.n + tile.e + tile.s + tile.w) % 2;
+          shapes.push(...smithArcs(x0, y0, cell, orientation, radii, strokeFor, weight));
+        } else {
+          shapes.push(...wangTriangles(x0, y0, cell, tile, colours));
+        }
+        continue;
+      }
+
+      if (family === 'arcs') {
+        shapes.push(...smithArcs(x0, y0, cell, model.field[index], radii, strokeFor, weight));
+        continue;
+      }
+
+      if (family === 'arcs-free') {
+        const corner = ['nw', 'ne', 'se', 'sw'][model.field[index]];
+        const [ox, oy] = CORNER_OFFSETS[corner];
+        for (let j = 0; j < radii.length; j++) {
+          shapes.push(arcShape(x0 + ox * cell, y0 + oy * cell, radii[j], corner,
+            strokeFor(j), weight));
+        }
+        continue;
+      }
+
+      // Both diagonal families draw the same way; only the field differs.
+      // 1 is the south-west to north-east diagonal, 0 the other one.
+      const slash = model.field[index] === 1;
+      shapes.push({
+        kind: 'segment',
+        x1: x0,
+        y1: slash ? y0 + cell : y0,
+        x2: x0 + cell,
+        y2: slash ? y0 : y0 + cell,
+        stroke: colours(0),
+        width: weight,
+      });
+    }
+  }
+
+  return {
+    width: width * cell,
+    height: height * cell,
+    cell,
+    background: palette.background,
+    shapes,
+  };
+}
+
+function smithArcs(x0, y0, cell, orientation, radii, strokeFor, weight) {
+  const corners = orientation === 0 ? ['nw', 'se'] : ['ne', 'sw'];
+  const out = [];
+  for (const corner of corners) {
+    const [ox, oy] = CORNER_OFFSETS[corner];
+    for (let j = 0; j < radii.length; j++) {
+      out.push(arcShape(x0 + ox * cell, y0 + oy * cell, radii[j], corner, strokeFor(j), weight));
+    }
+  }
+  return out;
+}
+
+/* ---- src/palette.mjs ---- */
+// Colour, kept in one place so the SVG writer, the rasteriser and the browser canvas can
+// never drift apart.
+//
+// Each palette carries at least six ink colours because the Jeandel-Rao set uses five
+// distinct vertical edge labels, and a palette that runs out silently reuses a colour,
+// which would make two different edge labels look identical and make the whole rendering
+// unreadable as a proof that the edges match. `colourFor` throws instead.
+
+const PALETTE_DATA = {
+  indigo: {
+    label: 'Indigo night',
+    background: '#141a2e',
+    ink: '#f2ece1',
+    colours: ['#e9614a', '#f0a35e', '#ecd9a0', '#63b2a4', '#3f6bab', '#9a6fa8'],
+  },
+  cyanotype: {
+    label: 'Cyanotype',
+    background: '#0a1f3c',
+    ink: '#dcecff',
+    colours: ['#dcecff', '#93b8dd', '#5a8ac0', '#2e5f9e', '#173f75', '#0d2a52'],
+  },
+  terracotta: {
+    label: 'Terracotta',
+    background: '#f6efe6',
+    ink: '#372520',
+    colours: ['#b8442b', '#dd7f4e', '#eab661', '#7d9b6a', '#3f6b6b', '#6b4a52'],
+  },
+  slate: {
+    label: 'Slate and bone',
+    background: '#e9e6df',
+    ink: '#22262b',
+    colours: ['#22262b', '#4d565f', '#7c8791', '#a9b2b9', '#cfd4d8', '#f4f2ee'],
+  },
+  orchard: {
+    label: 'Orchard',
+    background: '#fbf7ee',
+    ink: '#2b3324',
+    colours: ['#3f6b35', '#7aa055', '#c3cc72', '#e5b04b', '#d1663f', '#8c4a53'],
+  },
+  neon: {
+    label: 'Neon on black',
+    background: '#08090c',
+    ink: '#f2f4f8',
+    colours: ['#ff4d6d', '#ffb703', '#f7f5bc', '#38e8b0', '#3aa0ff', '#b478ff'],
+  },
+};
+
+function paletteNames() {
+  return Object.keys(PALETTE_DATA);
+}
+
+function getPalette(name) {
+  const found = PALETTE_DATA[name];
+  if (!found) {
+    throw new Error(`unknown palette ${JSON.stringify(name)}; `
+      + `known palettes are ${paletteNames().join(', ')}`);
+  }
+  return found;
+}
+
+/**
+ * The colour for edge label `index`.
+ *
+ * Refuses to wrap. Reusing a colour when the alphabet outgrows the palette would make two
+ * distinct edge labels render identically, and the four-triangle rendering is readable as
+ * evidence of matching only while distinct labels look distinct.
+ */
+function colourFor(palette, index) {
+  if (index < 0 || index >= palette.colours.length) {
+    throw new Error(`edge label ${index} has no colour: palette "${palette.label}" has `
+      + `${palette.colours.length} colours, so it cannot render this tile set`);
+  }
+  return palette.colours[index];
+}
+
+function parseHex(hex) {
+  const text = hex.replace('#', '');
+  const full = text.length === 3 ? text.split('').map((ch) => ch + ch).join('') : text;
+  if (!/^[0-9a-fA-F]{6}$/.test(full)) throw new Error(`not a hex colour: ${hex}`);
+  return [
+    parseInt(full.slice(0, 2), 16),
+    parseInt(full.slice(2, 4), 16),
+    parseInt(full.slice(4, 6), 16),
+  ];
+}
+
+/* ---- src/svg.mjs ---- */
+// Primitives to SVG text.
+//
+// Two properties matter beyond looking right.
+//
+// Byte determinism. Every number is formatted through `num`, which rounds to a fixed number
+// of decimals and strips a trailing ".0", so the same seed produces the same bytes on any
+// machine. A test asserts it, because "shareable seed" is a claim about bytes.
+//
+// Readability by something that is not this program. `scripts/check_independent.py` parses
+// the emitted file and re-derives the edge matching and the curve continuity from the
+// geometry alone. That only works if the geometry is in the file rather than in a transform
+// attribute or a symbol reference, so every shape is written out with absolute coordinates
+// and no <use>, no <defs>, and no transforms.
+
+const DECIMALS = 4;
+
+function num(value) {
+  if (!Number.isFinite(value)) throw new Error(`cannot format ${value} into SVG`);
+  const rounded = value.toFixed(DECIMALS).replace(/\.?0+$/, '');
+  return rounded === '' || rounded === '-' ? '0' : rounded;
+}
+
+function polar(cx, cy, r, degrees) {
+  const radians = (degrees * Math.PI) / 180;
+  return [cx + r * Math.cos(radians), cy + r * Math.sin(radians)];
+}
+
+function arcPath(shape) {
+  const [x1, y1] = polar(shape.cx, shape.cy, shape.r, shape.from);
+  const [x2, y2] = polar(shape.cx, shape.cy, shape.r, shape.to);
+  const large = Math.abs(shape.to - shape.from) > 180 ? 1 : 0;
+  const sweep = shape.to > shape.from ? 1 : 0;
+  return `M ${num(x1)} ${num(y1)} A ${num(shape.r)} ${num(shape.r)} 0 ${large} ${sweep} `
+    + `${num(x2)} ${num(y2)}`;
+}
+
+/**
+ * @param scene       the object from buildPrimitives
+ * @param printWidthMm physical width of the whole image. SVG is resolution independent, so
+ *                     "print resolution" for a vector file means real physical units on the
+ *                     root element with a matching viewBox, which is what a printer or a
+ *                     cutter needs. A file with only pixel units prints at whatever the
+ *                     application guesses.
+ */
+function toSvg(scene, { printWidthMm = 200, title = 'tiling', metadata = {} } = {}) {
+  const heightMm = (printWidthMm * scene.height) / scene.width;
+  const lines = [];
+  lines.push('<?xml version="1.0" encoding="UTF-8"?>');
+  lines.push(`<svg xmlns="http://www.w3.org/2000/svg" version="1.1" `
+    + `width="${num(printWidthMm)}mm" height="${num(heightMm)}mm" `
+    + `viewBox="0 0 ${num(scene.width)} ${num(scene.height)}">`);
+  lines.push(`  <title>${escapeText(title)}</title>`);
+  const keys = Object.keys(metadata).sort();
+  if (keys.length) {
+    lines.push('  <desc>');
+    for (const key of keys) lines.push(`    ${escapeText(key)}: ${escapeText(String(metadata[key]))}`);
+    lines.push('  </desc>');
+  }
+  lines.push(`  <rect x="0" y="0" width="${num(scene.width)}" height="${num(scene.height)}" `
+    + `fill="${scene.background}"/>`);
+  for (const shape of scene.shapes) {
+    if (shape.kind === 'polygon') {
+      const points = shape.points.map(([x, y]) => `${num(x)},${num(y)}`).join(' ');
+      // shape-rendering crispEdges keeps the seam between two triangles of the same colour
+      // from showing a hairline of background, which otherwise makes a correct tiling look
+      // cracked at every edge.
+      lines.push(`  <polygon points="${points}" fill="${shape.fill}" shape-rendering="crispEdges"/>`);
+    } else if (shape.kind === 'arc') {
+      lines.push(`  <path d="${arcPath(shape)}" fill="none" stroke="${shape.stroke}" `
+        + `stroke-width="${num(shape.width)}" stroke-linecap="round"/>`);
+    } else if (shape.kind === 'segment') {
+      lines.push(`  <path d="M ${num(shape.x1)} ${num(shape.y1)} L ${num(shape.x2)} `
+        + `${num(shape.y2)}" fill="none" stroke="${shape.stroke}" `
+        + `stroke-width="${num(shape.width)}" stroke-linecap="round"/>`);
+    } else {
+      throw new Error(`no SVG writer for shape kind ${shape.kind}`);
+    }
+  }
+  lines.push('</svg>');
+  return `${lines.join('\n')}\n`;
+}
+
+function escapeText(text) {
+  return String(text)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+/* ---- src/canvas.mjs ---- */
+// The third renderer: the same shape list, drawn into a 2D canvas context.
+//
+// It exists so the page shows what the SVG and the PNG would show. Three renderers reading
+// one description is the arrangement that keeps them honest; three renderers each deriving
+// their own geometry would be three chances to disagree, and the disagreement would be
+// invisible until someone printed a file and found it different from the screen.
+//
+// Nothing here decides anything. Every coordinate arrives already computed in user units,
+// and this multiplies by a scale. If a curve is broken on the page it is broken in the SVG.
+
+function drawScene(context, scene, { scale = 1, background = true } = {}) {
+  const s = (value) => value * scale;
+  if (background) {
+    context.fillStyle = scene.background;
+    context.fillRect(0, 0, s(scene.width), s(scene.height));
+  }
+  context.lineCap = 'round';
+  for (const shape of scene.shapes) {
+    if (shape.kind === 'polygon') {
+      context.fillStyle = shape.fill;
+      context.beginPath();
+      shape.points.forEach(([x, y], index) => {
+        if (index === 0) context.moveTo(s(x), s(y));
+        else context.lineTo(s(x), s(y));
+      });
+      context.closePath();
+      context.fill();
+      // Stroking the polygon with its own fill colour closes the hairline of background that
+      // otherwise shows between two triangles of the same colour. Without it a correct
+      // tiling looks cracked along every edge on a high density screen.
+      context.strokeStyle = shape.fill;
+      context.lineWidth = 1;
+      context.stroke();
+    } else if (shape.kind === 'arc') {
+      context.strokeStyle = shape.stroke;
+      context.lineWidth = s(shape.width);
+      context.beginPath();
+      context.arc(s(shape.cx), s(shape.cy), s(shape.r),
+        (shape.from * Math.PI) / 180, (shape.to * Math.PI) / 180);
+      context.stroke();
+    } else if (shape.kind === 'segment') {
+      context.strokeStyle = shape.stroke;
+      context.lineWidth = s(shape.width);
+      context.beginPath();
+      context.moveTo(s(shape.x1), s(shape.y1));
+      context.lineTo(s(shape.x2), s(shape.y2));
+      context.stroke();
+    } else {
+      throw new Error(`no canvas renderer for shape kind ${shape.kind}`);
+    }
+  }
+}
+
+/**
+ * Draw one tile of a Wang set on its own, for the tile set inspector.
+ *
+ * A person looking at a tiling cannot see the tile set that produced it, and the set is the
+ * interesting object. This draws the four coloured triangles at a small size so the page can
+ * show all eleven Jeandel-Rao tiles beside the tiling they generate.
+ */
+function drawTile(context, tile, size, colours) {
+  const half = size / 2;
+  const quadrants = [
+    [[0, 0], [size, 0], [half, half], tile.n],
+    [[size, 0], [size, size], [half, half], tile.e],
+    [[size, size], [0, size], [half, half], tile.s],
+    [[0, size], [0, 0], [half, half], tile.w],
+  ];
+  for (const [a, b, c, label] of quadrants) {
+    context.fillStyle = colours(label);
+    context.beginPath();
+    context.moveTo(a[0], a[1]);
+    context.lineTo(b[0], b[1]);
+    context.lineTo(c[0], c[1]);
+    context.closePath();
+    context.fill();
+    context.strokeStyle = context.fillStyle;
+    context.lineWidth = 1;
+    context.stroke();
+  }
+}
+
+/* ---- web/app.mjs ---- */
+// The page. Reads the same modules the command line reads, so the picture on screen is the
+// picture the SVG writer would write, and the invariant reported here is the invariant the
+// test suite asserts.
+//
+// Two things this deliberately does not do. It does not carry its own copy of the geometry,
+// because two copies drift. And it does not hide a failed invariant: the counterexample
+// families report a failure in red, because the page claiming everything is fine whatever it
+// draws would make the whole readout decorative.
+
+const $ = (id) => document.getElementById(id);
+const CELL = 100;
+const PRINT_DPI = 300;
+const PRINT_CELL_MM = 12;
+
+const state = { ...DEFAULTS };
+
+// ------------------------------------------------------------------------------ theme
+
+const THEMES = ['auto', 'light', 'dark'];
+const THEME_LABEL = { auto: 'Auto', light: 'Light', dark: 'Dark' };
+
+function applyTheme(theme) {
+  document.documentElement.dataset.theme = theme;
+  $('theme-label').textContent = THEME_LABEL[theme];
+  try { localStorage.setItem('wt-theme', theme); } catch { /* private mode, no matter */ }
+}
+
+$('theme-toggle').addEventListener('click', () => {
+  const current = document.documentElement.dataset.theme || 'auto';
+  applyTheme(THEMES[(THEMES.indexOf(current) + 1) % THEMES.length]);
+});
+
+let storedTheme = null;
+try { storedTheme = localStorage.getItem('wt-theme'); } catch { storedTheme = null; }
+applyTheme(THEMES.includes(storedTheme) ? storedTheme : 'auto');
+
+// --------------------------------------------------------------------------- controls
+
+for (const [name, entry] of Object.entries(FAMILIES)) {
+  $('family').append(new Option(entry.label, name));
+}
+for (const [name, entry] of Object.entries(TILE_SETS)) {
+  $('set').append(new Option(entry.label, name));
+}
+for (const [name, entry] of Object.entries(PALETTE_DATA)) {
+  $('palette').append(new Option(entry.label, name));
+}
+
+function readHash() {
+  const raw = window.location.hash.replace(/^#/, '');
+  if (!raw) return;
+  const params = new URLSearchParams(raw);
+  for (const [key, value] of params) {
+    if (!(key in DEFAULTS)) continue;
+    if (key === 'torus') state.torus = value === '1';
+    else if (typeof DEFAULTS[key] === 'number') state[key] = Number(value);
+    else state[key] = value;
+  }
+}
+
+function writeHash() {
+  const params = new URLSearchParams();
+  for (const key of Object.keys(DEFAULTS)) {
+    const value = state[key];
+    if (value === DEFAULTS[key]) continue;
+    params.set(key, key === 'torus' ? (value ? '1' : '0') : String(value));
+  }
+  const next = params.toString();
+  const url = `${window.location.pathname}${next ? `#${next}` : ''}`;
+  window.history.replaceState(null, '', url);
+}
+
+function pushStateToControls() {
+  $('family').value = state.family;
+  $('set').value = state.set;
+  $('style').value = state.style;
+  $('palette').value = state.palette;
+  $('seed').value = state.seed;
+  $('width').value = String(state.width);
+  $('height').value = String(state.height);
+  $('bands').value = String(state.bands);
+  $('weight').value = String(Math.round(state.weight * 100));
+  $('torus').checked = state.torus;
+  $('grid-value').textContent = `${state.width} x ${state.height}`;
+  $('bands-value').textContent = String(state.bands);
+  $('weight-value').textContent = `${Math.round(state.weight * 100)}% of a cell`;
+
+  const isWang = state.family === 'wang';
+  const usesBands = isWang ? state.style === 'arcs' : state.family.startsWith('arcs');
+  $('set-field').hidden = !isWang;
+  $('style-field').hidden = !isWang;
+  $('bands-field').hidden = !usesBands;
+  $('family-note').textContent = FAMILIES[state.family].description;
+  $('set-note').textContent = isWang ? TILE_SETS[state.set].note : '';
+}
+
+function readControls() {
+  state.family = $('family').value;
+  state.set = $('set').value;
+  state.style = $('style').value;
+  state.palette = $('palette').value;
+  state.seed = $('seed').value || 'wang-1';
+  state.width = Number($('width').value);
+  state.height = Number($('height').value);
+  state.bands = Number($('bands').value);
+  state.weight = Number($('weight').value) / 100;
+  state.torus = $('torus').checked;
+}
+
+// ---------------------------------------------------------------------------- drawing
+
+let current = null;
+
+function buildScene() {
+  const model = buildModel(state);
+  const palette = getPalette(state.palette);
+  const scene = buildPrimitives(model, {
+    palette, colourFor, cell: CELL, weight: model.weight, bands: model.bands,
+  });
+  return { model, palette, scene, check: checkModel(model) };
+}
+
+function paint() {
+  const canvas = $('canvas');
+  const frame = canvas.parentElement;
+  const available = Math.max(240, frame.clientWidth - 2);
+  const ratio = Math.min(window.devicePixelRatio || 1, 3);
+  const cssWidth = available;
+  const cssHeight = Math.max(1, Math.round((cssWidth * current.scene.height) / current.scene.width));
+  canvas.width = Math.round(cssWidth * ratio);
+  canvas.height = Math.round(cssHeight * ratio);
+  canvas.style.height = `${cssHeight}px`;
+  const context = canvas.getContext('2d');
+  context.setTransform(1, 0, 0, 1, 0, 0);
+  drawScene(context, current.scene, { scale: (cssWidth * ratio) / current.scene.width });
+}
+
+function describePlacement(model) {
+  const words = { edges: 'Direct, from the edge colours', scanline: 'One scanline pass',
+    solver: 'Arc consistency and backtracking', free: 'Unconstrained, none is needed',
+    xor: 'a[row] xor b[column]' };
+  return words[model.placement.method] ?? model.placement.method;
+}
+
+function renderReadout({ model, check }) {
+  const clean = check.violations.length === 0;
+  const ok = check.expectClean ? clean : !clean;
+  const verdict = $('invariant-verdict');
+  verdict.className = `verdict ${ok ? 'pass' : 'fail'}`;
+  const label = check.kind === 'edge-matching' ? 'Edge matching' : 'Curve continuity';
+  verdict.textContent = `${ok ? 'PASS' : 'FAIL'}  ${label}, `
+    + `${check.violations.length} violation${check.violations.length === 1 ? '' : 's'}`;
+  const interiorEdges = check.kind === 'edge-matching'
+    ? `${model.torus ? model.width * model.height * 2
+      : (model.width - 1) * model.height + model.width * (model.height - 1)} interior edges`
+    : null;
+  if (check.expectClean) {
+    $('invariant-detail').textContent = clean
+      ? `Every one of the ${interiorEdges ?? 'interior meeting points'} checked, and every `
+        + 'one agrees. Checked in this page, on this tiling, after this change.'
+      : `This family must be clean and is not. First: ${JSON.stringify(check.violations[0])}`;
+  } else {
+    $('invariant-detail').textContent = clean
+      ? 'This family is the counterexample and must produce violations. It produced none, '
+        + 'which means the checker has stopped looking.'
+      : 'This family is kept because it is broken. Curves end in mid air, the checker finds '
+        + 'them, and that is how the checker is known to work at all.';
+  }
+
+  $('placement-verdict').textContent = describePlacement(model);
+  $('placement-detail').textContent = `${model.placement.guarantee}. `
+    + `${model.placement.steps} step${model.placement.steps === 1 ? '' : 's'} for `
+    + `${model.width * model.height} cells.`;
+
+  const inspector = $('inspector');
+  if (model.family === 'wang') {
+    const report = model.completeness ?? completenessReport(model.tiles);
+    $('completeness-verdict').className = `verdict ${report.complete ? 'pass' : ''}`;
+    $('completeness-verdict').textContent = report.complete
+      ? `Complete, ${report.pairs} of ${report.pairs} constraint pairs covered`
+      : `Not complete, ${report.missing.length} of ${report.pairs} pairs have no tile`;
+    $('completeness-detail').textContent = report.complete
+      ? `Every (north, west) pair has between ${report.minChoices} and ${report.maxChoices} `
+        + 'admissible tiles, so a single scanline pass can never strand itself.'
+      : 'A scanline pass would reach one of the uncovered pairs and have nowhere to go, so '
+        + 'this set is placed by the backtracking solver instead.';
+    inspector.hidden = false;
+    $('inspector-note').textContent = `${model.tiles.length} tiles, `
+      + `${model.colours} edge colour${model.colours === 1 ? '' : 's'}. North, east, south and `
+      + 'west are the four triangles, reading clockwise from the top.';
+    renderTiles(model);
+  } else {
+    $('completeness-verdict').className = 'verdict';
+    $('completeness-verdict').textContent = 'Not applicable';
+    $('completeness-detail').textContent = 'Completeness is a property of a Wang tile set. '
+      + 'The Truchet families constrain the drawing rather than the edge labels.';
+    inspector.hidden = true;
+  }
+}
+
+function renderTiles(model) {
+  const host = $('tiles');
+  host.textContent = '';
+  const palette = getPalette(state.palette);
+  const colours = (index) => colourFor(palette, index);
+  const ratio = Math.min(window.devicePixelRatio || 1, 3);
+  const size = 46;
+  model.tiles.forEach((tile, index) => {
+    const figure = document.createElement('figure');
+    const canvas = document.createElement('canvas');
+    canvas.width = size * ratio;
+    canvas.height = size * ratio;
+    const context = canvas.getContext('2d');
+    context.scale(ratio, ratio);
+    drawTile(context, tile, size, colours);
+    const caption = document.createElement('figcaption');
+    caption.textContent = `${index}: ${tile.n}${tile.e}${tile.s}${tile.w}`;
+    figure.append(canvas, caption);
+    host.append(figure);
+  });
+}
+
+function renderCaption({ model, check }) {
+  const bits = [
+    `<strong>${FAMILIES[model.family].label}</strong>`,
+    model.family === 'wang' ? `${TILE_SETS[model.set].label}` : null,
+    `${model.width} x ${model.height} cells`,
+    `seed <strong>${escapeHtml(model.seed)}</strong>`,
+    model.torus ? 'wrapped seamlessly' : 'open boundary',
+    `${check.violations.length} violation${check.violations.length === 1 ? '' : 's'}`,
+  ].filter(Boolean);
+  $('caption').innerHTML = bits.join(' &middot; ');
+}
+
+function escapeHtml(text) {
+  return String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function showError(message) {
+  $('plate').classList.add('error');
+  $('caption').textContent = message;
+  const canvas = $('canvas');
+  const context = canvas.getContext('2d');
+  context.setTransform(1, 0, 0, 1, 0, 0);
+  context.clearRect(0, 0, canvas.width, canvas.height);
+}
+
+function update() {
+  readControls();
+  pushStateToControls();
+  writeHash();
+  try {
+    current = buildScene();
+  } catch (error) {
+    current = null;
+    showError(error.message);
+    return;
+  }
+  $('plate').classList.remove('error');
+  paint();
+  renderCaption(current);
+  renderReadout(current);
+  document.body.dataset.ready = 'yes';
+}
+
+// ------------------------------------------------------------------------------ export
+
+function download(name, blob) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = name;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
+function slug() {
+  const parts = [current.model.family, current.model.family === 'wang' ? current.model.set : null,
+    `${current.model.width}x${current.model.height}`, current.model.seed];
+  return parts.filter(Boolean).join('-').replace(/[^a-zA-Z0-9-]+/g, '_');
+}
+
+function buildSvgText() {
+  const { model, scene, check } = current;
+  return toSvg(scene, {
+    printWidthMm: (model.width * PRINT_CELL_MM),
+    title: `${model.family} ${model.width}x${model.height} seed ${model.seed}`,
+    metadata: {
+      family: model.family,
+      set: model.family === 'wang' ? model.set : 'n/a',
+      style: model.family === 'wang' ? model.style : 'n/a',
+      seed: model.seed,
+      grid: `${model.width}x${model.height}`,
+      seamless: String(model.torus),
+      placement: model.placement.method,
+      invariant: `${check.kind}: ${check.violations.length} violation(s)`,
+    },
+  });
+}
+
+$('download-svg').addEventListener('click', () => {
+  if (!current) return;
+  download(`${slug()}.svg`, new Blob([buildSvgText()], { type: 'image/svg+xml' }));
+});
+
+/**
+ * Print resolution means a real number of pixels for a real physical size, so the width is
+ * computed from the cell size in millimetres and the dots per inch rather than from whatever
+ * the screen happens to be. A 16 cell tiling at 12 mm per cell and 300 dpi is 2268 pixels.
+ */
+function printPixelWidth(model) {
+  return Math.round(((model.width * PRINT_CELL_MM) / 25.4) * PRINT_DPI);
+}
+
+$('download-png').addEventListener('click', () => {
+  if (!current) return;
+  const { model, scene } = current;
+  const width = printPixelWidth(model);
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = Math.round((width * scene.height) / scene.width);
+  drawScene(canvas.getContext('2d'), scene, { scale: width / scene.width });
+  canvas.toBlob((blob) => { if (blob) download(`${slug()}-${PRINT_DPI}dpi.png`, blob); }, 'image/png');
+});
+
+$('copy-link').addEventListener('click', async () => {
+  const button = $('copy-link');
+  const previous = button.textContent;
+  try {
+    await navigator.clipboard.writeText(window.location.href);
+    button.textContent = 'Copied';
+  } catch {
+    // Clipboard access can be refused, and pretending it worked would be a lie the user
+    // discovers only when they paste nothing.
+    button.textContent = 'Copy blocked';
+  }
+  setTimeout(() => { button.textContent = previous; }, 1600);
+});
+
+$('shuffle').addEventListener('click', () => {
+  const words = ['ochre', 'lattice', 'kite', 'meander', 'stanza', 'thimble', 'cobble', 'quire',
+    'plait', 'tessera', 'runnel', 'gable'];
+  const pick = words[Math.floor(Math.random() * words.length)];
+  $('seed').value = `${pick}-${Math.floor(Math.random() * 1000)}`;
+  update();
+});
+
+for (const id of ['family', 'set', 'style', 'palette', 'seed', 'width', 'height', 'bands',
+  'weight', 'torus']) {
+  const element = $(id);
+  element.addEventListener('input', update);
+  element.addEventListener('change', update);
+}
+
+let resizeTimer = null;
+window.addEventListener('resize', () => {
+  if (!current) return;
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(paint, 80);
+});
+
+readHash();
+pushStateToControls();
+update();
+
+// The browser check reads these. Exposing the model rather than a screenshot is what makes
+// it possible to assert that the script ran and that the tiling on screen is the tiling the
+// invariants were computed over.
+window.wangTruchet = {
+  state,
+  get model() { return current?.model ?? null; },
+  get check() { return current?.check ?? null; },
+  get sceneShapes() { return current?.scene.shapes.length ?? 0; },
+  buildSvgText,
+  printPixelWidth,
+};
+</script>
+</body>
+</html>

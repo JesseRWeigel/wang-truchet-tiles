@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="auto">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wang and Truchet tiles</title>
+<meta name="description" content="An edge-matched Wang tile and Truchet curve generator that checks its own output. Self contained, no network, deterministic from a named seed.">
+<style>
+/*STYLE*/
+</style>
+</head>
+<body>
+<a class="skip" href="#plate">Skip to the tiling</a>
+
+<header class="masthead">
+  <div class="masthead-text">
+    <h1>Wang and Truchet tiles</h1>
+    <p class="standfirst">Squares with coloured edges, placed without rotation so that
+    touching edges agree. Curves that join because the geometry makes them join, checked
+    rather than asserted. Every tiling here is reproducible from its seed.</p>
+  </div>
+  <button id="theme-toggle" class="theme-toggle" type="button" aria-live="polite">
+    <span id="theme-label">Auto</span>
+  </button>
+</header>
+
+<main>
+  <section class="controls" aria-label="Controls">
+    <div class="control-grid">
+      <div class="field">
+        <label for="family">Family</label>
+        <select id="family"></select>
+        <p class="hint" id="family-note"></p>
+      </div>
+
+      <div class="field" id="set-field">
+        <label for="set">Tile set</label>
+        <select id="set"></select>
+        <p class="hint" id="set-note"></p>
+      </div>
+
+      <div class="field" id="style-field">
+        <label for="style">Drawing</label>
+        <select id="style">
+          <option value="triangles">Four coloured triangles</option>
+          <option value="arcs">Smith arcs, one orientation per tile</option>
+        </select>
+        <p class="hint">The triangles show the edge colours themselves, so a person can read
+        the matching off the picture.</p>
+      </div>
+
+      <div class="field">
+        <label for="palette">Palette</label>
+        <select id="palette"></select>
+      </div>
+
+      <div class="field">
+        <label for="seed">Seed</label>
+        <div class="row">
+          <input id="seed" type="text" spellcheck="false" autocomplete="off">
+          <button id="shuffle" type="button" class="ghost">New</button>
+        </div>
+        <p class="hint">The same seed always gives the same tiling, in this page and on the
+        command line.</p>
+      </div>
+
+      <div class="field">
+        <label for="width">Grid <span class="value" id="grid-value"></span></label>
+        <div class="row">
+          <input id="width" type="range" min="1" max="48" step="1">
+          <input id="height" type="range" min="1" max="48" step="1">
+        </div>
+      </div>
+
+      <div class="field" id="bands-field">
+        <label for="bands">Bands per corner <span class="value" id="bands-value"></span></label>
+        <input id="bands" type="range" min="1" max="7" step="1">
+      </div>
+
+      <div class="field" id="weight-field">
+        <label for="weight">Stroke <span class="value" id="weight-value"></span></label>
+        <input id="weight" type="range" min="2" max="45" step="1">
+      </div>
+
+      <div class="field checkbox">
+        <label for="torus">
+          <input id="torus" type="checkbox">
+          <span>Seamless, wrapped on a torus</span>
+        </label>
+        <p class="hint">The left edge is glued to the right and the top to the bottom, so the
+        image repeats without a seam.</p>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button id="download-svg" type="button">Download SVG</button>
+      <button id="download-png" type="button">Download PNG, 300 dpi</button>
+      <button id="copy-link" type="button" class="ghost">Copy link</button>
+    </div>
+    <p class="hint" id="export-note">The SVG carries millimetre dimensions, so it prints and
+    cuts at a real size rather than at whatever the application guesses.</p>
+  </section>
+
+  <section class="plate" id="plate" aria-label="The tiling">
+    <div class="plate-frame">
+      <canvas id="canvas" width="16" height="16"></canvas>
+    </div>
+    <p class="caption" id="caption"></p>
+  </section>
+</main>
+
+<section class="readout" aria-label="What the generator checked">
+  <div class="readout-head">
+    <h2>What this tiling was checked for</h2>
+    <p class="standfirst">Run in the page, on the tiling on screen, every time it changes.
+    The counterexample families are supposed to fail, and saying so is the only way to know
+    the checker is looking.</p>
+  </div>
+  <div class="cards">
+    <article class="card" id="card-invariant">
+      <h3>Invariant</h3>
+      <p class="verdict" id="invariant-verdict"></p>
+      <p class="detail" id="invariant-detail"></p>
+    </article>
+    <article class="card">
+      <h3>Placement</h3>
+      <p class="verdict" id="placement-verdict"></p>
+      <p class="detail" id="placement-detail"></p>
+    </article>
+    <article class="card">
+      <h3>Completeness</h3>
+      <p class="verdict" id="completeness-verdict"></p>
+      <p class="detail" id="completeness-detail"></p>
+    </article>
+  </div>
+  <div class="inspector" id="inspector">
+    <h3>The tile set</h3>
+    <p class="detail" id="inspector-note"></p>
+    <div class="tiles" id="tiles"></div>
+  </div>
+</section>
+
+<section class="notes">
+  <h2>The parts that are easy to get wrong</h2>
+  <div class="note-grid">
+    <article>
+      <h3>Rotation changes the problem</h3>
+      <p>A Wang tile is placed as it is. Allowing a tile to turn quietly replaces the tile set
+      with its rotation closure, which is a different set with different answers, and the
+      undecidability result that makes these interesting is about the version that does not
+      turn. Nothing in this program rotates a tile.</p>
+    </article>
+    <article>
+      <h3>A scanline placer can strand itself</h3>
+      <p>Left to right, top to bottom, each cell is constrained by the tile above and the tile
+      to its left. If the set has no tile for some (north, west) pair, the placer eventually
+      reaches that pair and has nowhere to go. The stochastic sets here are complete by
+      construction and the page checks it pair by pair. The Jeandel-Rao set is not complete,
+      strands a naive pass 100 times out of 100, and gets the backtracking solver instead.</p>
+    </article>
+    <article>
+      <h3>Aperiodic is not the same as random</h3>
+      <p>A stochastic two colour tiling is random, and random is not aperiodic. The
+      Jeandel-Rao set of 11 tiles is genuinely aperiodic: it tiles the plane and admits no
+      periodic tiling at all. That was proven by Emmanuel Jeandel and Michael Rao in
+      arXiv:1506.06492, not here. What this program checks is weaker and is stated as such:
+      the set tiles large squares, and an exhaustive search finds no tiling of any torus up to
+      5 by 5. Both would fail on a mistranscribed digit, and one of them did.</p>
+    </article>
+    <article>
+      <h3>Truchet curves join only under a condition</h3>
+      <p>Cyril Stanley Smith's arcs join because every tile presents an endpoint at all four
+      edge midpoints, so any orientation meets any neighbour. Draw one quarter arc per tile
+      instead and most curves end in mid air. Both are here, because a continuity checker that
+      only ever sees valid input proves nothing. The original diagonal tile has its endpoints
+      at the corners, where four cells meet, and continuity needs every interior vertex to
+      have an even number of line ends. The fields that satisfy that are exactly
+      a[row] xor b[column], and nothing else.</p>
+    </article>
+  </div>
+  <p class="colophon">No network requests, no fonts, no build step, no analytics. The whole
+  tool is this one file. The command line version writes the same SVG byte for byte.</p>
+</section>
+
+<script type="module">
+/*APP*/
+</script>
+</body>
+</html>

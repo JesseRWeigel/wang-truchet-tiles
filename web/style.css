@@ -1,0 +1,424 @@
+/* One stylesheet, inlined into docs/index.html by scripts/build_docs.mjs.
+ *
+ * Themes. The page follows the operating system by default and the toggle overrides it in
+ * both directions, which is why the dark rules appear twice: once under
+ * prefers-color-scheme for the automatic case, and once under :root[data-theme="dark"] so an
+ * explicit choice wins over the system on a machine set the other way. A page that only
+ * listens to the media query has a toggle that does nothing for half its visitors. */
+
+:root {
+  --paper: #f6f4ef;
+  --panel: #fffefb;
+  --ink: #17191d;
+  --muted: #5d6169;
+  --faint: #8b9098;
+  --rule: #ddd8ce;
+  --rule-strong: #c3bcae;
+  --accent: #3c4ea3;
+  --accent-soft: #e7e9f6;
+  --ok: #2f6b46;
+  --bad: #a33327;
+  --shadow: 0 1px 2px rgba(23, 25, 29, 0.06), 0 12px 32px rgba(23, 25, 29, 0.08);
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --serif: Georgia, "Iowan Old Style", "Times New Roman", Times, serif;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #101216;
+    --panel: #171a20;
+    --ink: #e9e6df;
+    --muted: #a2a8b3;
+    --faint: #757c88;
+    --rule: #272c35;
+    --rule-strong: #39404c;
+    --accent: #93a7ff;
+    --accent-soft: #1c2233;
+    --ok: #6fce9c;
+    --bad: #f0837a;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 14px 40px rgba(0, 0, 0, 0.45);
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="light"] {
+  --paper: #f6f4ef;
+  --panel: #fffefb;
+  --ink: #17191d;
+  --muted: #5d6169;
+  --faint: #8b9098;
+  --rule: #ddd8ce;
+  --rule-strong: #c3bcae;
+  --accent: #3c4ea3;
+  --accent-soft: #e7e9f6;
+  --ok: #2f6b46;
+  --bad: #a33327;
+  --shadow: 0 1px 2px rgba(23, 25, 29, 0.06), 0 12px 32px rgba(23, 25, 29, 0.08);
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  --paper: #101216;
+  --panel: #171a20;
+  --ink: #e9e6df;
+  --muted: #a2a8b3;
+  --faint: #757c88;
+  --rule: #272c35;
+  --rule-strong: #39404c;
+  --accent: #93a7ff;
+  --accent-soft: #1c2233;
+  --ok: #6fce9c;
+  --bad: #f0837a;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 14px 40px rgba(0, 0, 0, 0.45);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  padding: 0 clamp(1rem, 4vw, 3.5rem) 5rem;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 16px;
+  line-height: 1.55;
+  -webkit-text-size-adjust: 100%;
+}
+
+/* Hidden by clipping rather than by left: -9999px. The off-screen idiom puts a real box a
+ * long way outside the viewport, which the layout check in scripts/browser_check.mjs reports
+ * as an element escaping the page, and it is right to: the check cannot tell an intentional
+ * skip link from a control that has fallen off the edge, and weakening it to allow one would
+ * blind it to the other. */
+.skip {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.skip:focus {
+  width: auto;
+  height: auto;
+  margin: 0;
+  padding: 0.5rem 1rem;
+  clip-path: none;
+  left: 0;
+  top: 0;
+  background: var(--accent);
+  color: var(--panel);
+  z-index: 10;
+}
+
+h1, h2, h3 { font-family: var(--serif); font-weight: 400; letter-spacing: -0.01em; }
+
+.masthead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 2rem;
+  max-width: 76rem;
+  margin: 0 auto;
+  padding: clamp(2rem, 5vw, 3.5rem) 0 1.5rem;
+  border-bottom: 1px solid var(--rule);
+}
+
+.masthead h1 {
+  margin: 0 0 0.6rem;
+  font-size: clamp(2rem, 5vw, 3.1rem);
+  line-height: 1.05;
+}
+
+.standfirst {
+  margin: 0;
+  max-width: 46rem;
+  color: var(--muted);
+  font-size: 1.02rem;
+}
+
+.theme-toggle {
+  flex: none;
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  padding: 0.5rem 0.9rem;
+  border: 1px solid var(--rule-strong);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+.theme-toggle:hover { color: var(--ink); border-color: var(--ink); }
+
+main {
+  display: grid;
+  grid-template-columns: minmax(19rem, 22rem) minmax(0, 1fr);
+  gap: clamp(1.5rem, 3vw, 3rem);
+  align-items: start;
+  max-width: 76rem;
+  margin: 0 auto;
+  padding-top: 2rem;
+}
+
+/* ------------------------------------------------------------------ controls */
+
+.controls {
+  position: sticky;
+  top: 1.5rem;
+  background: var(--panel);
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  padding: 1.25rem;
+  box-shadow: var(--shadow);
+}
+
+.control-grid { display: grid; gap: 1.1rem; }
+
+.field { display: grid; gap: 0.35rem; min-width: 0; }
+
+.field > label,
+.field.checkbox > label > span {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+.field .value { color: var(--accent); letter-spacing: 0.04em; }
+
+select, input[type="text"] {
+  width: 100%;
+  min-width: 0;
+  font: inherit;
+  font-size: 0.94rem;
+  padding: 0.45rem 0.6rem;
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--rule-strong);
+  border-radius: 6px;
+}
+
+input[type="text"] { font-family: var(--mono); font-size: 0.86rem; }
+
+select:focus-visible,
+input:focus-visible,
+button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.row { display: flex; gap: 0.5rem; align-items: center; min-width: 0; }
+.row > input[type="range"] { flex: 1 1 0; min-width: 0; }
+
+input[type="range"] {
+  width: 100%;
+  min-width: 0;
+  accent-color: var(--accent);
+}
+
+.field.checkbox > label {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  cursor: pointer;
+}
+.field.checkbox input { accent-color: var(--accent); width: 1rem; height: 1rem; }
+
+.hint {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 1.25rem 0 0.6rem;
+  padding-top: 1.1rem;
+  border-top: 1px solid var(--rule);
+}
+
+button {
+  font-family: var(--mono);
+  font-size: 0.74rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 0.55rem 0.85rem;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: var(--accent);
+  color: var(--panel);
+  cursor: pointer;
+}
+/* The panel colour is the near-white of the light theme and the near-black of the dark one,
+ * and the accent inverts with it, so one declaration gives a readable button in both. */
+button:hover { filter: brightness(1.07); }
+
+button.ghost {
+  background: transparent;
+  color: var(--muted);
+  border-color: var(--rule-strong);
+}
+button.ghost:hover { color: var(--ink); border-color: var(--ink); filter: none; }
+
+/* --------------------------------------------------------------------- plate */
+
+.plate { min-width: 0; }
+
+.plate-frame {
+  background: var(--panel);
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  padding: clamp(0.6rem, 1.5vw, 1.1rem);
+  box-shadow: var(--shadow);
+  overflow-x: auto;
+}
+
+canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 3px;
+}
+
+.caption {
+  margin: 0.9rem 0 0;
+  font-family: var(--mono);
+  font-size: 0.76rem;
+  line-height: 1.6;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+}
+
+.caption strong { color: var(--ink); font-weight: 600; }
+
+.plate.error .plate-frame {
+  border-color: var(--bad);
+  border-style: dashed;
+}
+
+/* ------------------------------------------------------------------- readout */
+
+.readout, .notes {
+  max-width: 76rem;
+  margin: clamp(2.5rem, 6vw, 4rem) auto 0;
+  padding-top: clamp(1.5rem, 3vw, 2.25rem);
+  border-top: 1px solid var(--rule);
+}
+
+.readout h2, .notes h2 { margin: 0 0 0.5rem; font-size: 1.6rem; }
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.card {
+  background: var(--panel);
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  padding: 1rem 1.1rem 1.2rem;
+}
+
+.card h3 {
+  margin: 0 0 0.5rem;
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+.verdict {
+  margin: 0 0 0.45rem;
+  font-family: var(--mono);
+  font-size: 0.95rem;
+  line-height: 1.4;
+}
+.verdict.pass { color: var(--ok); }
+.verdict.fail { color: var(--bad); }
+
+.detail {
+  margin: 0;
+  font-size: 0.84rem;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.inspector { margin-top: 1.75rem; }
+.inspector h3 {
+  margin: 0 0 0.35rem;
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+.tiles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  margin-top: 0.9rem;
+}
+
+.tiles figure {
+  margin: 0;
+  display: grid;
+  gap: 0.25rem;
+  justify-items: center;
+}
+
+.tiles canvas {
+  width: 46px;
+  height: 46px;
+  border-radius: 4px;
+  border: 1px solid var(--rule);
+}
+
+.tiles figcaption {
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.04em;
+  color: var(--faint);
+}
+
+/* --------------------------------------------------------------------- notes */
+
+.note-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+  gap: 1.5rem 2.5rem;
+  margin-top: 1.5rem;
+}
+
+.note-grid h3 { margin: 0 0 0.4rem; font-size: 1.08rem; }
+.note-grid p { margin: 0; color: var(--muted); font-size: 0.9rem; }
+
+.colophon {
+  margin: 2.5rem 0 0;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--rule);
+  font-family: var(--mono);
+  font-size: 0.74rem;
+  letter-spacing: 0.02em;
+  color: var(--faint);
+}
+
+@media (max-width: 900px) {
+  main { grid-template-columns: minmax(0, 1fr); }
+  .controls { position: static; }
+  .plate { order: -1; }
+}
