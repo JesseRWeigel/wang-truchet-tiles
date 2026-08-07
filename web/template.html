@@ -67,8 +67,10 @@
       <div class="field">
         <label for="width">Grid <span class="value" id="grid-value"></span></label>
         <div class="row">
-          <input id="width" type="range" min="1" max="48" step="1">
-          <input id="height" type="range" min="1" max="48" step="1">
+          <span class="axis" aria-hidden="true">W</span>
+          <input id="width" type="range" min="1" max="48" step="1" aria-label="Cells across">
+          <span class="axis" aria-hidden="true">H</span>
+          <input id="height" type="range" min="1" max="48" step="1" aria-label="Cells down">
         </div>
       </div>
 
@@ -94,7 +96,7 @@
 
     <div class="actions">
       <button id="download-svg" type="button">Download SVG</button>
-      <button id="download-png" type="button">Download PNG, 300 dpi</button>
+      <button id="download-png" type="button">PNG, 300 dpi</button>
       <button id="copy-link" type="button" class="ghost">Copy link</button>
     </div>
     <p class="hint" id="export-note">The SVG carries millimetre dimensions, so it prints and

@@ -85,6 +85,11 @@
 
 * { box-sizing: border-box; }
 
+/* A control that does not apply to the current family is hidden with the hidden attribute,
+ * and `display: grid` on .field would otherwise beat the browser's own `[hidden]` rule, so
+ * the tile set menu stayed on screen while a Truchet family was selected. */
+[hidden] { display: none !important; }
+
 body {
   margin: 0;
   padding: 0 clamp(1rem, 4vw, 3.5rem) 5rem;
@@ -247,14 +252,24 @@ input[type="range"] {
   color: var(--muted);
 }
 
+.axis {
+  font-family: var(--mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.08em;
+  color: var(--faint);
+  flex: none;
+}
+
 .actions {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 0.5rem;
   margin: 1.25rem 0 0.6rem;
   padding-top: 1.1rem;
   border-top: 1px solid var(--rule);
 }
+
+.actions button:first-child { grid-column: 1 / -1; }
 
 button {
   font-family: var(--mono);
@@ -490,8 +505,10 @@ canvas {
       <div class="field">
         <label for="width">Grid <span class="value" id="grid-value"></span></label>
         <div class="row">
-          <input id="width" type="range" min="1" max="48" step="1">
-          <input id="height" type="range" min="1" max="48" step="1">
+          <span class="axis" aria-hidden="true">W</span>
+          <input id="width" type="range" min="1" max="48" step="1" aria-label="Cells across">
+          <span class="axis" aria-hidden="true">H</span>
+          <input id="height" type="range" min="1" max="48" step="1" aria-label="Cells down">
         </div>
       </div>
 
@@ -517,7 +534,7 @@ canvas {
 
     <div class="actions">
       <button id="download-svg" type="button">Download SVG</button>
-      <button id="download-png" type="button">Download PNG, 300 dpi</button>
+      <button id="download-png" type="button">PNG, 300 dpi</button>
       <button id="copy-link" type="button" class="ghost">Copy link</button>
     </div>
     <p class="hint" id="export-note">The SVG carries millimetre dimensions, so it prints and
