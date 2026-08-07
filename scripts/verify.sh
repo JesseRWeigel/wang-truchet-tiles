@@ -63,7 +63,10 @@ else
 fi
 before="$(digest_tree)"
 tracked=$(git ls-files | wc -l)
-ok "$tracked tracked files digested as $before"
+# The digest itself is deliberately not printed. This transcript is pasted into the
+# README, and a digest of the tracked files changes the moment the README is pasted
+# into, so printing it would make the pasted output permanently one edit out of date.
+ok "$tracked tracked files digested before the run"
 
 echo
 echo "1. unit suite"
@@ -408,11 +411,10 @@ if problems:
     for problem in problems:
         print(f"    {problem}")
     sys.exit(1)
-print(f"    {len(lines)} lines, {inside} of them pasted output, no scaffold marker in the prose")
+print("    the prose is clean and the pasted transcript is inside a code fence")
 PYTHON
   then
     ok "README has a Status section and no scaffold marker outside its code fences"
-    cat "$work/readme.txt"
   else
     cat "$work/readme.txt"
     bad "the README is not finished"
@@ -431,7 +433,7 @@ echo
 echo "11. the verify run did not modify the tree"
 after="$(digest_tree)"
 if [ "$before" = "$after" ]; then
-  ok "every tracked file is byte for byte what it was, $after"
+  ok "every tracked file is byte for byte what it was"
 else
   git status --short
   bad "the tree changed during verification: $before became $after"

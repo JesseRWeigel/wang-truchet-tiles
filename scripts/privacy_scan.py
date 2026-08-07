@@ -112,12 +112,10 @@ def main():
 
     problems = 0
     scanned = 0
-    total_bytes = 0
     for path in files:
         if not path.exists():
             continue
         raw = path.read_bytes()
-        total_bytes += len(raw)
         if b"\0" in raw:
             print(f"  FAIL  {path.relative_to(root)} contains a NUL byte, so grep and git "
                   "would classify it as binary and skip it entirely. Write the byte as the "
@@ -139,8 +137,10 @@ def main():
     if problems:
         print(f"  {problems} problem(s) across {scanned} files")
         return 1
-    print(f"  ok    {scanned} tracked files, {total_bytes} bytes, no credential-shaped "
-          "string, no personal path, no NUL byte")
+    # The total byte count is not printed. This line is pasted into the README, and the
+    # README is one of the files counted, so quoting the number would guarantee it is wrong.
+    print(f"  ok    {scanned} tracked files scanned, no credential-shaped string, "
+          "no personal path, no NUL byte")
     return 0
 
 
