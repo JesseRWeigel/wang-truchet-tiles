@@ -92,7 +92,7 @@ percent for diagonals purely because of the angle at which curves cross an edge.
 
 ## What is checked, and how it is known that the checks work
 
-- **45 unit tests** over generated tilings, not fixtures. Every positive assertion has a
+- **46 unit tests** over generated tilings, not fixtures. Every positive assertion has a
   negative control beside it: single-cell corruptions swept over a whole grid, the two broken
   Truchet families required to fail, the wrap check required to reject an open-boundary
   tiling, and the torus solver required to find a torus tiling when one exists.
@@ -169,7 +169,86 @@ had the matching fix already; the two continuity checkers did not.
 Verified by running `bash scripts/verify.sh`, exit code 0. Pasted output:
 
 ```
-TODO-STATUS
+0. preconditions
+  ok    node v24.13.0, python 3.12.3
+  ok    28 tracked files digested before the run
+
+1. unit suite
+  ok    unit suite: 46 tests passed
+
+2. the published page is what the sources build
+  ok    docs/index.html matches its sources, 90804 bytes
+
+3. the command line runs end to end
+  ok    report: 30 lines covering every tile set
+  ok    naive scanline strands the aperiodic set 100% of the time and the complete sets 0%
+  ok    no periodic tiling of the Jeandel-Rao set on any torus up to 5x5, searched exhaustively
+
+4. every family is placed and checked, and the counterexamples fail as they must
+  ok    5 families placed; the two counterexamples reported 88 40  violations
+  ok    the aperiodic set is placed by the solver:  placement solver in 43 step(s)
+  ok    a seamless wrap of the aperiodic set is refused with a reason, not attempted
+
+5. a wrapped PNG is seamless to the byte, and carries its resolution
+  ok    seamless      shifting the tiling one cell and shifting the image one cell agree on 270000/270000 bytes
+  ok    the PNG on disk is 300x300, 8 bit truecolour, 300 dpi on disk
+
+6. the invariants re-derived from the rendered SVG by an independent checker
+    ok    arcs-w.svg: curve continuity, by tracing arc endpoints
+           144 shapes, 48 interior edges, 288 endpoints traced, 0 violation(s), expected clean
+    ok    arcs.svg: curve continuity, by tracing arc endpoints
+           540 shapes, 93 interior edges, 1080 endpoints traced, 0 violation(s), expected clean
+    ok    diag-w.svg: diagonal continuity, by counting line ends
+           24 shapes, 24 interior vertices, 0 violation(s), expected clean
+    ok    diag.svg: diagonal continuity, by counting line ends
+           48 shapes, 35 interior vertices, 0 violation(s), expected clean
+    ok    tri-jr.svg: edge matching, from the painted colours
+           252 shapes, 110 interior edges, 0 violation(s), expected clean
+    ok    tri-wrap.svg: edge matching, from the painted colours
+           144 shapes, 72 interior edges, 0 violation(s), expected clean
+    ok    tri.svg: edge matching, from the painted colours
+           140 shapes, 58 interior edges, 0 violation(s), expected clean
+    ok    wangarc.svg: curve continuity, by tracing arc endpoints
+           216 shapes, 60 interior edges, 432 endpoints traced, 0 violation(s), expected clean
+  ok    8 renderings re-checked from their own geometry, all clean
+  ok    the counterexample renderings are caught by the independent checker too: 2 reported
+  ok    recoloured the east quadrant of cell 1,1 from #f0a35e to #000000, and the independent checker caught it
+
+7. the independent checker really is independent, proved with ast
+  ok    check_independent.py shares no code with the package it checks
+    imports only argparse, collections, math, re, sys, xml, all standard library, no dynamic import and no subprocess
+
+8. the page in a real browser
+    ok    the page script ran and built 1024 shapes
+    ok    5 families, 6 tile sets, 6 palettes offered
+    ok    the tile inspector drew all 8 tiles of the default set
+    ok    the canvas is 783x783 with 401+ distinct colours
+    ok    all five families report the verdict they should, including arcs-free with 246 violations and diagonals-free with 105 violations
+    ok    the browser and node produce the same 12921 byte SVG, 9293d3b723c8dc30
+    ok    the seed in the URL reproduces the same pixels across two page loads, 5694737:92308603
+    ok    a different seed draws a different tiling
+    ok    16 cells at 12 mm and 300 dpi exports 2268 pixels
+    ok    an explicit theme overrides the system preference in both directions, and the toggle cycles auto to light to dark
+    ok    at 1280px nothing escapes the page, canvas is 750 css px backed by 783
+    ok    at 390px nothing escapes the page, canvas is 337 css px backed by 354
+    ok    no uncaught exception and no console error in any of the runs above
+  13 passed, 0 failed
+  ok    the browser check passed: 13 passed, 0 failed
+
+9. privacy
+  ok    positive control: all 8 patterns fired on planted examples (8 hits)
+  ok    28 tracked files scanned, no credential-shaped string, no personal path, no NUL byte
+  ok    privacy scan clean, with its positive control fired
+
+10. the README says what is true
+  ok    README has a Status section and no scaffold marker outside its code fences
+  ok    the Status block quotes the current test count, 46
+
+11. the verify run did not modify the tree
+  ok    every tracked file is byte for byte what it was
+
+21 passed, 0 failed
+VERIFY OK
 ```
 
 ## What is not done
