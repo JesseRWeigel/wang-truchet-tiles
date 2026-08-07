@@ -19,7 +19,7 @@ import { buildModel, checkModel, rollModel, DEFAULTS } from '../src/model.mjs';
 import { buildPrimitives, bandRadii, assertSymmetricRadii, bandColourIndex } from '../src/geometry.mjs';
 import { getPalette, colourFor, paletteNames, parseHex } from '../src/palette.mjs';
 import { toSvg, num, arcPath } from '../src/svg.mjs';
-import { rasterise, rollImage, imageDifference } from '../src/raster.mjs';
+import { rasterise, rollImage, imageDifference, insideTriangle } from '../src/raster.mjs';
 import { encodePng, readPngHeader } from '../src/png.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -242,6 +242,60 @@ test('the rasteriser refuses a sample count that would break translation invaria
   const { scene } = render({ family: 'arcs', width: 2, height: 2, seed: 'r' });
   assert.throws(() => rasterise(scene, { pixelWidth: 32, samples: 3 }), /power of two/);
   assert.throws(() => rasterise(scene, { pixelWidth: 0 }), /pixelWidth/);
+});
+
+test('the four quadrants of a cell partition it, with no point claimed twice or not at all', () => {
+  // The property the fill rule exists for. Under the obvious inclusive test a point lying on
+  // an internal diagonal is inside two quadrants at once, and which one wins is decided by
+  // paint order rather than by geometry. That is invisible in a picture and fatal to any
+  // claim that translating the scene translates the rendering.
+  //
+  // Sample points are chosen to land exactly on the diagonals rather than near them, because
+  // near is where the naive rule is already correct.
+  const cell = 100;
+  const quadrant = (r, c) => {
+    const x = c * cell;
+    const y = r * cell;
+    const mid = [x + cell / 2, y + cell / 2];
+    return {
+      n: [[x, y], [x + cell, y], mid],
+      e: [[x + cell, y], [x + cell, y + cell], mid],
+      s: [[x + cell, y + cell], [x, y + cell], mid],
+      w: [[x, y + cell], [x, y], mid],
+    };
+  };
+  const quadrants = quadrant(0, 0);
+  const points = [];
+  for (let t = 1; t < cell; t++) {
+    points.push([t, t]);             // the north-west to south-east diagonal
+    points.push([t, cell - t]);      // the other one
+    points.push([t, cell / 2]);      // the horizontal through the centre
+    points.push([cell / 2, t]);
+    points.push([t + 0.5, t / 3 + 7]);
+  }
+  points.push([cell / 2, cell / 2]);
+  let claimedOnce = 0;
+  for (const [x, y] of points) {
+    const owners = Object.entries(quadrants)
+      .filter(([, triangle]) => insideTriangle(x, y, triangle))
+      .map(([name]) => name);
+    assert.equal(owners.length, 1,
+      `the point ${x},${y} is claimed by ${owners.length} quadrants (${owners.join(', ')}), `
+      + 'so the four of them do not partition the cell');
+    claimedOnce += 1;
+  }
+  assert.ok(claimedOnce > 300, `only ${claimedOnce} points tested`);
+
+  // And across a shared edge: exactly one of the eight quadrants of two neighbouring cells
+  // claims a point sitting on the boundary between them.
+  const left = quadrant(0, 0);
+  const right = quadrant(0, 1);
+  for (let t = 1; t < cell; t++) {
+    const owners = [...Object.values(left), ...Object.values(right)]
+      .filter((triangle) => insideTriangle(cell, t, triangle));
+    assert.equal(owners.length, 1,
+      `the point on the shared edge at height ${t} is claimed ${owners.length} times`);
+  }
 });
 
 test('a wrapped render refuses a pixel grid that does not land on the cell grid', () => {

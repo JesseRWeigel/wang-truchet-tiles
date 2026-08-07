@@ -92,7 +92,7 @@ function bucketShapes(scene, wrap) {
  * leftwards is a top edge and keeps its boundary; everything else gives it up. Coverage then
  * depends only on the geometry, so translating the whole scene translates the coverage.
  */
-function insideTriangle(px, py, points) {
+export function insideTriangle(px, py, points) {
   let [[ax, ay], [bx, by], [cx, cy]] = points;
   // Normalise the winding so "inside" is consistently the non-negative side. In screen
   // coordinates, with y increasing downwards, that is clockwise on screen.
