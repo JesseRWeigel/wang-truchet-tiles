@@ -132,6 +132,27 @@ export function checkArcContinuity(field, width, height, { torus = false, family
   for (let r = 0; r < height; r++) {
     for (let c = 0; c < width; c++) {
       const here = touches(r * width + c);
+      // A torus one cell wide glues a cell's east edge to its own west edge, which is a
+      // constraint on the single cell rather than between two of them. The loop below never
+      // sees it, because it compares a cell with a neighbour and here there is none, so it
+      // is applied separately. Leaving it out made every 1xN and Nx1 torus report clean, and
+      // the solver already carries the matching fix for the same reason.
+      if (torus && width === 1 && here[1] !== here[3]) {
+        violations.push({
+          row: r, column: c, edge: 'east',
+          detail: 'one cell wide on a torus: the east edge is glued to its own west edge and '
+            + `they disagree (${here[1] ? 'endpoint' : 'blank'} against `
+            + `${here[3] ? 'endpoint' : 'blank'})`,
+        });
+      }
+      if (torus && height === 1 && here[2] !== here[0]) {
+        violations.push({
+          row: r, column: c, edge: 'south',
+          detail: 'one cell tall on a torus: the south edge is glued to its own north edge '
+            + `and they disagree (${here[2] ? 'endpoint' : 'blank'} against `
+            + `${here[0] ? 'endpoint' : 'blank'})`,
+        });
+      }
       const hasEast = c + 1 < width || (torus && width > 1);
       if (hasEast) {
         const other = touches(r * width + ((c + 1) % width));

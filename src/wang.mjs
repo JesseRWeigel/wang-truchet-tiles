@@ -463,6 +463,22 @@ export function checkEdgeMatching(tiles, grid, width, height, { torus = false } 
         violations.push({ row: r, column: c, edge: 'cell', detail: 'no tile placed' });
         continue;
       }
+      // On a torus one cell wide the east edge is glued to the west edge of the same tile.
+      // The neighbour comparison below cannot express that, so it is checked here. The
+      // solver applies the same constraint when it searches; without this the checker would
+      // agree with a solver that had dropped it.
+      if (torus && width === 1 && here.e !== here.w) {
+        violations.push({
+          row: r, column: c, edge: 'east',
+          detail: `one cell wide on a torus: east ${here.e} against its own west ${here.w}`,
+        });
+      }
+      if (torus && height === 1 && here.s !== here.n) {
+        violations.push({
+          row: r, column: c, edge: 'south',
+          detail: `one cell tall on a torus: south ${here.s} against its own north ${here.n}`,
+        });
+      }
       const hasEast = c + 1 < width || (torus && width > 1);
       if (hasEast) {
         const other = at(r, (c + 1) % width);
