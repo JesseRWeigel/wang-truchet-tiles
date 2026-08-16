@@ -3,6 +3,8 @@
 Wang and Truchet tile system with a validating placer, a backtracking solver, SVG and PNG
 export, and a self-contained web tool that checks its own output.
 
+**[The tilings, and what they were checked for →](https://jesserweigel.github.io/wang-truchet-tiles/)**
+
 Catalog task: `ART-020`. One of a public catalog of build ideas:
 https://github.com/JesseRWeigel/722-things-to-build
 
